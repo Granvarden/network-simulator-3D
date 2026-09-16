@@ -129,40 +129,186 @@ class Rack(Interactable):
         return self.occupied_units.get(u)
 
     def render(self) -> None:
-        """Render the 42U rack enclosure, mounting rails, and all installed devices."""
+        """Render a highly detailed 42U datacenter server rack enclosure."""
         cx, cy, cz = self.position
-        hw = self.width_m / 2.0
-        hd = self.depth_m / 2.0
-        th = self.total_height_m
+        hw = self.width_m / 2.0      # 0.30m half-width
+        hd = self.depth_m / 2.0      # 0.45m half-depth
+        th = self.total_height_m     # ~2.01m total height
 
-        # 4 Corner Vertical Posts (Solid dark steel)
-        post_size = 0.04
-        post_color = GraphicsConfig.COLOR_RACK_FRAME
-        draw_box(cx - hw + 0.02, cy + th / 2.0, cz - hd + 0.02, post_size, th, post_size, post_color)
-        draw_box(cx + hw - 0.02, cy + th / 2.0, cz - hd + 0.02, post_size, th, post_size, post_color)
-        draw_box(cx - hw + 0.02, cy + th / 2.0, cz + hd - 0.02, post_size, th, post_size, post_color)
-        draw_box(cx + hw - 0.02, cy + th / 2.0, cz + hd - 0.02, post_size, th, post_size, post_color)
-
-        # Top & Bottom Plates
-        plate_color = (0.12, 0.13, 0.15)
-        draw_box(cx, cy + 0.03, cz, self.width_m, 0.06, self.depth_m, plate_color)
-        draw_box(cx, cy + th - 0.03, cz, self.width_m, 0.06, self.depth_m, plate_color)
-
-        # Left & Right Perforated Side Panels (Dark metal)
-        panel_color = (0.16, 0.17, 0.19)
-        draw_box(cx - hw + 0.005, cy + th / 2.0, cz, 0.01, th - 0.12, self.depth_m - 0.08, panel_color)
-        draw_box(cx + hw - 0.005, cy + th / 2.0, cz, 0.01, th - 0.12, self.depth_m - 0.08, panel_color)
-
-        # 19" Mounting Rails (Vertical silver/gray rails)
-        rail_w = 0.02
-        rail_x = 0.24  # 0.48m spacing between rails
-        rail_color = GraphicsConfig.COLOR_RACK_RAILS
-        rail_y = cy + 0.08 + (42 * self.u_height_m) / 2.0
+        rail_y_base = cy + 0.08
         rail_h = 42 * self.u_height_m
-        draw_box(cx - rail_x, rail_y, cz + 0.40, rail_w, rail_h, 0.02, rail_color)
-        draw_box(cx + rail_x, rail_y, cz + 0.40, rail_w, rail_h, 0.02, rail_color)
 
-        # Render Installed Devices
+        # ================================================================
+        # 1. STRUCTURAL FRAME: 4 Corner Posts (Thick Extruded Steel)
+        # ================================================================
+        post_w = 0.045
+        post_d = 0.045
+        post_color = (0.11, 0.12, 0.14)  # Near-black steel
+        mid_y = cy + th / 2.0
+
+        # Front-Left, Front-Right posts (flush with front face)
+        draw_box(cx - hw + post_w / 2, mid_y, cz + hd - post_d / 2, post_w, th, post_d, post_color)
+        draw_box(cx + hw - post_w / 2, mid_y, cz + hd - post_d / 2, post_w, th, post_d, post_color)
+        # Rear-Left, Rear-Right posts
+        draw_box(cx - hw + post_w / 2, mid_y, cz - hd + post_d / 2, post_w, th, post_d, post_color)
+        draw_box(cx + hw - post_w / 2, mid_y, cz - hd + post_d / 2, post_w, th, post_d, post_color)
+
+        # ================================================================
+        # 2. TOP & BOTTOM PLATES / CABLE TRAY LIDS
+        # ================================================================
+        plate_color = (0.12, 0.13, 0.15)
+        draw_box(cx, cy + 0.03, cz, self.width_m, 0.06, self.depth_m, plate_color)       # Bottom plate
+        draw_box(cx, cy + th - 0.03, cz, self.width_m, 0.06, self.depth_m, plate_color)  # Top plate/lid
+
+        # Top cable entry brush strip (dark foam strip)
+        draw_box(cx, cy + th - 0.005, cz + hd * 0.4, self.width_m - 0.06, 0.010, hd * 0.18, (0.08, 0.08, 0.09))
+
+        # ================================================================
+        # 3. SIDE PANELS: Perforated Vented Steel Panels
+        # ================================================================
+        # Outer panel skin (mid-dark charcoal)
+        side_panel_color = (0.15, 0.16, 0.18)
+        panel_inner_color = (0.13, 0.14, 0.16)
+        draw_box(cx - hw + 0.008, mid_y, cz, 0.016, th - 0.10, self.depth_m - 0.09, side_panel_color)
+        draw_box(cx + hw - 0.008, mid_y, cz, 0.016, th - 0.10, self.depth_m - 0.09, side_panel_color)
+
+        # Horizontal stiffener ribs on side panels (every ~20cm)
+        rib_color = (0.10, 0.11, 0.13)
+        for rib_i in range(1, 10):
+            rib_y = cy + 0.08 + (rib_i / 10.0) * (th - 0.10)
+            draw_box(cx - hw + 0.004, rib_y, cz, 0.006, 0.015, self.depth_m - 0.12, rib_color)
+            draw_box(cx + hw - 0.004, rib_y, cz, 0.006, 0.015, self.depth_m - 0.12, rib_color)
+
+        # Perforation slot rows (visual slits evenly spaced — dark cutout rows)
+        perf_color = (0.06, 0.07, 0.08)
+        for slot_i in range(8):
+            slot_y = cy + 0.25 + slot_i * 0.22
+            draw_box(cx - hw + 0.014, slot_y, cz, 0.002, 0.018, self.depth_m * 0.55, perf_color)
+            draw_box(cx + hw - 0.014, slot_y, cz, 0.002, 0.018, self.depth_m * 0.55, perf_color)
+
+        # ================================================================
+        # 4. REAR PANEL: Cable Management Backplane
+        # ================================================================
+        rear_panel_color = (0.13, 0.14, 0.16)
+        draw_box(cx, mid_y, cz - hd + 0.010, self.width_m - 0.08, th - 0.10, 0.020, rear_panel_color)
+
+        # Rear PDU (vertical power strip bar, right side)
+        pdu_color = (0.09, 0.10, 0.12)
+        draw_box(cx + hw - 0.065, mid_y, cz - hd + 0.022, 0.060, th * 0.70, 0.040, pdu_color)
+        # PDU outlets (small gray bumps)
+        for pdu_i in range(10):
+            outlet_y = cy + 0.18 + pdu_i * 0.14
+            draw_box(cx + hw - 0.065, outlet_y, cz - hd + 0.044, 0.030, 0.018, 0.008, (0.25, 0.26, 0.28))
+
+        # ================================================================
+        # 5. FRONT MOUNTING RAILS (19" Standard — Brushed Silver)
+        # ================================================================
+        rail_color = (0.28, 0.30, 0.33)  # Brushed stainless steel
+        rail_w = 0.022
+        rail_x_offset = 0.229  # Standard 19" rack rail spacing (half = 9.5in = ~0.241m - post)
+        rail_z = cz + hd - 0.060  # Set slightly back from front face
+
+        draw_box(cx - rail_x_offset, rail_y_base + rail_h / 2, rail_z, rail_w, rail_h, 0.018, rail_color)
+        draw_box(cx + rail_x_offset, rail_y_base + rail_h / 2, rail_z, rail_w, rail_h, 0.018, rail_color)
+
+        # Rail U-slot screw holes (small notch markings every 1U)
+        screw_color = (0.18, 0.20, 0.22)
+        for u in range(1, 43, 3):  # Every 3U for performance
+            uy = rail_y_base + (u - 0.5) * self.u_height_m
+            draw_box(cx - rail_x_offset, uy, rail_z + 0.009, 0.006, 0.008, 0.002, screw_color)
+            draw_box(cx + rail_x_offset, uy, rail_z + 0.009, 0.006, 0.008, 0.002, screw_color)
+
+        # ================================================================
+        # 6. U-SLOT NUMBER MARKINGS STRIP (Left panel, front)
+        # ================================================================
+        # Thin number label strip (anodized aluminum, light)
+        label_strip_color = (0.35, 0.37, 0.40)
+        draw_box(cx - hw + 0.024, rail_y_base + rail_h / 2, cz + hd - 0.032, 0.018, rail_h, 0.012, label_strip_color)
+
+        # Every 5U: bright tick mark
+        tick_color = (0.55, 0.58, 0.62)
+        for u5 in range(5, 43, 5):
+            ty = rail_y_base + (u5 - 0.5) * self.u_height_m
+            draw_box(cx - hw + 0.024, ty, cz + hd - 0.028, 0.018, 0.004, 0.006, tick_color)
+            # Every 10U: wider bright accent tick
+            if u5 % 10 == 0:
+                draw_box(cx - hw + 0.024, ty, cz + hd - 0.028, 0.018, 0.006, 0.008, (0.72, 0.75, 0.80))
+
+        # ================================================================
+        # 7. FRONT DOOR: Perforated Mesh Panel
+        # ================================================================
+        door_face_color = (0.14, 0.155, 0.175)
+
+        # Main door face panel (slightly inset from front posts)
+        draw_box(cx, mid_y, cz + hd - 0.010, self.width_m - 0.09, th - 0.13, 0.014, door_face_color)
+
+        # Door mesh perforation rows (dark slots across full width)
+        mesh_color = (0.09, 0.10, 0.11)
+        for mesh_row in range(18):
+            row_y = cy + 0.12 + mesh_row * 0.10
+            draw_box(cx, row_y, cz + hd - 0.004, self.width_m * 0.80, 0.022, 0.004, mesh_color)
+
+        # Door hinge strip (left vertical bar)
+        hinge_color = (0.10, 0.11, 0.12)
+        draw_box(cx - hw + 0.055, mid_y, cz + hd - 0.003, 0.012, th - 0.12, 0.018, hinge_color)
+
+        # Door handle latch (front center-right)
+        handle_bar_color = (0.28, 0.30, 0.34)
+        handle_x = cx + hw - 0.080
+        draw_box(handle_x, cy + th * 0.52, cz + hd + 0.002, 0.018, 0.060, 0.022, handle_bar_color)
+        # Handle grip knob (bright chrome)
+        draw_box(handle_x, cy + th * 0.52, cz + hd + 0.013, 0.012, 0.012, 0.010, (0.65, 0.68, 0.72))
+
+        # Door lock cylinder (small)
+        draw_box(handle_x, cy + th * 0.52 - 0.050, cz + hd + 0.012, 0.010, 0.010, 0.012, (0.22, 0.24, 0.26))
+
+        # ================================================================
+        # 8. CABLE MANAGEMENT ARM BARS (Front horizontal brush bars at rack base)
+        # ================================================================
+        cmb_color = (0.12, 0.13, 0.15)
+        cmb_z = cz + hd - 0.024
+        for cmb_i in [0.12, 0.22]:
+            draw_box(cx, cy + cmb_i, cmb_z, self.width_m - 0.09, 0.020, 0.030, cmb_color)
+
+        # ================================================================
+        # 9. FRONT SYSTEM STATUS LED STRIP (Top of rack, front face)
+        # ================================================================
+        # Status bar panel (thin strip below top plate)
+        status_bar_y = cy + th - 0.075
+        draw_box(cx, status_bar_y, cz + hd - 0.007, self.width_m - 0.09, 0.025, 0.010, (0.10, 0.11, 0.13))
+
+        # Power LED (green)
+        draw_box(cx - hw + 0.085, status_bar_y, cz + hd + 0.001, 0.010, 0.010, 0.004,
+                 GraphicsConfig.COLOR_LED_GREEN if len(self.devices) > 0 else GraphicsConfig.COLOR_LED_OFF)
+        # Activity LED (amber/orange)
+        draw_box(cx - hw + 0.110, status_bar_y, cz + hd + 0.001, 0.010, 0.010, 0.004,
+                 GraphicsConfig.COLOR_LED_AMBER if len(self.devices) > 0 else GraphicsConfig.COLOR_LED_OFF)
+        # Fault LED (red when no devices)
+        draw_box(cx - hw + 0.135, status_bar_y, cz + hd + 0.001, 0.010, 0.010, 0.004,
+                 (0.85, 0.12, 0.10) if len(self.devices) == 0 else GraphicsConfig.COLOR_LED_OFF)
+
+        # ================================================================
+        # 10. RACK IDENTITY BADGE PLATE (Top-Front colored label)
+        # ================================================================
+        if "A" in self.rack_id:
+            sign_color = (0.15, 0.40, 0.80)
+            sign_accent = (0.25, 0.55, 0.95)
+        elif "B" in self.rack_id:
+            sign_color = (0.10, 0.55, 0.35)
+            sign_accent = (0.18, 0.75, 0.48)
+        else:
+            sign_color = (0.72, 0.35, 0.08)
+            sign_accent = (0.90, 0.50, 0.12)
+
+        badge_y = cy + th - 0.042
+        # Badge background plate
+        draw_box(cx, badge_y, cz + hd + 0.006, 0.24, 0.038, 0.008, sign_color)
+        # Badge accent left stripe
+        draw_box(cx - 0.104, badge_y, cz + hd + 0.009, 0.022, 0.028, 0.004, sign_accent)
+
+        # ================================================================
+        # 11. RENDER INSTALLED DEVICES
+        # ================================================================
         for device in self.devices:
             if device.start_u is None or not device.position:
                 continue
@@ -175,6 +321,9 @@ class Rack(Interactable):
             elif device.device_type == "PC":
                 self._pc_model.render(device, dev_cx, dev_cy, dev_cz)
 
-        # Rack ID Sign at Top
-        sign_color = (0.2, 0.5, 0.9) if "A" in self.rack_id else ((0.2, 0.7, 0.5) if "B" in self.rack_id else (0.9, 0.5, 0.2))
-        draw_box(cx, cy + th - 0.04, cz + hd + 0.005, 0.30, 0.05, 0.01, sign_color)
+        # ================================================================
+        # 12. RACK WIREFRAME OUTLINE (Top-level structural emphasis)
+        # ================================================================
+        draw_wire_box(cx, mid_y, cz, self.width_m + 0.002, th + 0.002, self.depth_m + 0.002,
+                      (0.08, 0.09, 0.10), line_width=0.8)
+
