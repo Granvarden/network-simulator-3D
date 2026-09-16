@@ -207,6 +207,14 @@ class SandboxScene(Scene):
                     self.mode_notification = "MODE: CABLING & CLI CONSOLE ([E] CLI, [F] Cable)"
                 self.mode_notif_timer = 2.2
                 self.held_cable_port = None  # Reset held cable on mode switch
+                # Immediately refresh interaction target for the new mode
+                self.player.current_target = self.player.interaction_detector.find_target(
+                    eye_pos=self.player.eye_position,
+                    forward=self.player.camera.get_forward_vector(),
+                    interactables=self.world.get_all_interactables(),
+                    mode=self.interaction_mode,
+                    has_held_cable=False
+                )
                 return True
 
             # E: Mode-specific Action
@@ -235,7 +243,7 @@ class SandboxScene(Scene):
 
                 # Mode 2: Hardware Management Mode -> E opens Install or Remove modal
                 elif self.interaction_mode == "HARDWARE_MGMT":
-                    if target.target_type in ("RACK", "DEVICE"):
+                    if target.target_type in ("RACK", "DEVICE", "PORT") or target.device:
                         self.interaction_panel.open_for_target(target)
                         self.active_modal = "INTERACTION"
                         input_mgr.set_mouse_locked(False)

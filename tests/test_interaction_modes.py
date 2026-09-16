@@ -133,3 +133,35 @@ def test_cabling_flow_connect_and_unplug():
     assert p1.connected_port is None
     assert p2.connected_port is None
     assert len(cable_mgr.get_all_cables()) == 0
+
+
+def test_precision_crosshair_port_aiming():
+    detector = InteractionDetector()
+    rack = Rack("Rack A", position=(0.0, 0.0, -7.05))
+    router = DeviceFactory.create_device("Router", "R1")
+    rack.install_device(router, 28)
+
+    port = router.get_port("Gi0/0")
+    assert port is not None
+    # Calculate exact world position of port
+    dev_cx, dev_cy, dev_cz = router.position
+    lx, ly, lz = port.local_slot_pos
+    p_wx = dev_cx + lx
+    p_wy = dev_cy + ly
+    p_wz = dev_cz + lz
+
+    # Point center ray directly at the port
+    eye_pos = (p_wx, p_wy, p_wz + 1.2)  # 1.2m directly in front of port
+    forward = (0.0, 0.0, -1.0)           # Facing directly towards port
+
+    target = detector.find_target(
+        eye_pos=eye_pos,
+        forward=forward,
+        interactables=[rack],
+        mode="CABLING_CLI"
+    )
+
+    assert target.target_type == "PORT"
+    assert target.port == port
+    assert target.device == router
+    assert "Patch Cable from R1:Gi0/0" in target.hint_text

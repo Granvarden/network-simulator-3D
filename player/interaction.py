@@ -93,119 +93,181 @@ class InteractionDetector:
         mode: str = "CABLING_CLI",
         has_held_cable: bool = False
     ) -> InteractionTarget:
-        """Find the closest interactable and RJ45 port in crosshair view within reach."""
-        closest_dist = max_dist + 1.0
-        best_hit: Optional[Tuple[Interactable, float, float]] = None
+        """Find the exact interactable, device, or RJ45 port centered directly under the crosshair reticle."""
+        ex, ey, ez = eye_pos
+        fx, fy, fz = forward
 
-        for item in interactables:
-            box = item.get_bounding_box()
-            res = self.ray_aabb_intersect(eye_pos, forward, box, max_dist)
-            if res is not None:
-                dist, hit_y = res
-                if dist < closest_dist:
-                    closest_dist = dist
-                    best_hit = (item, dist, hit_y)
+        # Collect racks and desk
+        racks: List[Rack] = [item for item in interactables if isinstance(item, Rack)]
+        other_items: List[Interactable] = [item for item in interactables if not isinstance(item, Rack)]
 
-        if best_hit is None:
-            return InteractionTarget(target_type="NONE")
+        # -------------------------------------------------------------
+        # 1. PRIORITY 1: Precise RJ45 Port Aiming (In Cabling/CLI Mode)
+        # Check all ports on all installed devices directly
+        # -------------------------------------------------------------
+        if mode == "CABLING_CLI":
+            best_port: Optional[Port] = None
+            best_port_device: Optional[Device] = None
+            best_port_rack: Optional[Rack] = None
+            best_port_pos: Optional[Tuple[float, float, float]] = None
+            best_port_dist: float = 999.0
+            best_port_offset_sq: float = 999.0
 
-        item, dist, hit_y = best_hit
+            for rack in racks:
+                for dev in rack.devices:
+                    if not dev.position:
+                        continue
+                    dev_cx, dev_cy, dev_cz = dev.position
+                    for port in dev.ports.values():
+                        lx, ly, lz = port.local_slot_pos
+                        p_wx = dev_cx + lx
+                        p_wy = dev_cy + ly
+                        p_wz = dev_cz + lz
 
-        # If targeted item is a Server Rack
-        if isinstance(item, Rack):
-            target_u = item.get_u_from_world_y(hit_y)
-            device_at_u = item.get_device_at_u(target_u)
+                        # Ray-to-point calculation
+                        vx = p_wx - ex
+                        vy = p_wy - ey
+                        vz = p_wz - ez
+                        t = vx * fx + vy * fy + vz * fz
 
-            if device_at_u:
-                if device_at_u.position:
-                    dev_cx, dev_cy, dev_cz = device_at_u.position
+                        if 0.2 < t <= max_dist:
+                            # Perpendicular vector from line of sight to port center
+                            perp_x = vx - t * fx
+                            perp_y = vy - t * fy
+                            perp_z = vz - t * fz
+                            d_perp_sq = perp_x * perp_x + perp_y * perp_y + perp_z * perp_z
+
+                            # Port hit tolerance: 2.8cm radius around socket center
+                            port_radius_sq = 0.028 * 0.028  # ~2.8cm
+                            if d_perp_sq <= port_radius_sq:
+                                # Prioritize port closest to the center reticle ray
+                                if d_perp_sq < best_port_offset_sq:
+                                    best_port_offset_sq = d_perp_sq
+                                    best_port_dist = t
+                                    best_port = port
+                                    best_port_device = dev
+                                    best_port_rack = rack
+                                    best_port_pos = (p_wx, p_wy, p_wz)
+
+            if best_port and best_port_device and best_port_rack:
+                if has_held_cable:
+                    hint = f"[F] Plug Cable into {best_port_device.hostname}:{best_port.port_name}"
+                elif best_port.connected_port:
+                    hint = f"[F] Unplug Cable from {best_port_device.hostname}:{best_port.port_name} | [E] Open CLI"
                 else:
-                    dev_cy = item.get_world_y_for_u(device_at_u.start_u) + (device_at_u.u_height * item.u_height_m) / 2.0
-                    dev_cz = item.position[2] + 0.15
-                    dev_cx = item.position[0]
-                dev_pos = (dev_cx, dev_cy, dev_cz)
+                    hint = f"[F] Patch Cable from {best_port_device.hostname}:{best_port.port_name} | [E] Open CLI"
 
-                # Check if ray hits any specific RJ45 Port on this device
-                best_port: Optional[Port] = None
-                best_port_dist = 999.0
-                best_port_pos: Optional[Tuple[float, float, float]] = None
+                dev_cx, dev_cy, dev_cz = best_port_device.position
+                return InteractionTarget(
+                    target_type="PORT",
+                    interactable=best_port_rack,
+                    rack=best_port_rack,
+                    targeted_u=best_port_device.start_u,
+                    device=best_port_device,
+                    port=best_port,
+                    port_world_pos=best_port_pos,
+                    device_world_pos=(dev_cx, dev_cy, dev_cz),
+                    distance=best_port_dist,
+                    hint_text=hint
+                )
 
-                for port in device_at_u.ports.values():
-                    lx, ly, lz = port.local_slot_pos
-                    p_wx = dev_cx + lx
-                    p_wy = dev_cy + ly
-                    p_wz = dev_cz + lz
-                    # Precision port bounding box for comfortable, accurate aiming
-                    p_box = (p_wx - 0.016, p_wy - 0.012, p_wz - 0.025, p_wx + 0.016, p_wy + 0.012, p_wz + 0.025)
-                    p_res = self.ray_aabb_intersect(eye_pos, forward, p_box, max_dist)
-                    if p_res is not None:
-                        p_dist, _ = p_res
-                        if p_dist < best_port_dist:
-                            best_port_dist = p_dist
-                            best_port = port
-                            best_port_pos = (p_wx, p_wy, p_wz)
+        # -------------------------------------------------------------
+        # 2. PRIORITY 2: Installed Device Chassis Raycast
+        # Check all installed devices across racks
+        # -------------------------------------------------------------
+        best_dev: Optional[Device] = None
+        best_dev_rack: Optional[Rack] = None
+        best_dev_dist: float = max_dist + 1.0
 
-                # Mode 1: Cabling & CLI Mode
-                if mode == "CABLING_CLI":
-                    if best_port:
-                        if has_held_cable:
-                            hint = f"[F] Plug Cable into {device_at_u.hostname}:{best_port.port_name}"
-                        elif best_port.connected_port:
-                            hint = f"[F] Unplug Cable from {device_at_u.hostname}:{best_port.port_name} | [E] Open CLI"
-                        else:
-                            hint = f"[F] Patch Cable from {device_at_u.hostname}:{best_port.port_name} | [E] Open CLI"
+        for rack in racks:
+            for dev in rack.devices:
+                if not dev.position:
+                    continue
+                dev_cx, dev_cy, dev_cz = dev.position
+                hw = 0.241  # 48.2cm chassis width
+                hh = (dev.u_height * 0.04445) / 2.0
+                hd = 0.26   # chassis depth
+                # Device bounding box
+                dev_box = (
+                    dev_cx - hw, dev_cy - hh, dev_cz - hd,
+                    dev_cx + hw, dev_cy + hh, dev_cz + 0.26
+                )
+                hit_res = self.ray_aabb_intersect(eye_pos, forward, dev_box, max_dist)
+                if hit_res is not None:
+                    t_hit, _ = hit_res
+                    if t_hit < best_dev_dist:
+                        best_dev_dist = t_hit
+                        best_dev = dev
+                        best_dev_rack = rack
 
-                        return InteractionTarget(
-                            target_type="PORT",
-                            interactable=item,
-                            rack=item,
-                            targeted_u=target_u,
-                            device=device_at_u,
-                            port=best_port,
-                            port_world_pos=best_port_pos,
-                            device_world_pos=dev_pos,
-                            distance=best_port_dist,
-                            hint_text=hint
-                        )
-                    else:
-                        hint = f"[E] Open CLI on {device_at_u.hostname} | [R] Hardware Mode"
-                        return InteractionTarget(
-                            target_type="DEVICE",
-                            interactable=item,
-                            rack=item,
-                            targeted_u=target_u,
-                            device=device_at_u,
-                            port=None,
-                            device_world_pos=dev_pos,
-                            distance=dist,
-                            hint_text=hint
-                        )
-                # Mode 2: Hardware Management Mode
-                else:
-                    hint = f"[E] Remove {device_at_u.hostname} from Rack | [R] Cabling Mode"
-                    return InteractionTarget(
-                        target_type="DEVICE",
-                        interactable=item,
-                        rack=item,
-                        targeted_u=target_u,
-                        device=device_at_u,
-                        port=None,
-                        device_world_pos=dev_pos,
-                        distance=dist,
-                        hint_text=hint
-                    )
-
+        if best_dev and best_dev_rack:
+            dev_cx, dev_cy, dev_cz = best_dev.position
+            if mode == "CABLING_CLI":
+                hint = f"[E] Open CLI on {best_dev.hostname} | [R] Hardware Mode"
             else:
-                # Empty U Slot
+                hint = f"[E] Remove {best_dev.hostname} from Rack | [R] Cabling Mode"
+
+            return InteractionTarget(
+                target_type="DEVICE",
+                interactable=best_dev_rack,
+                rack=best_dev_rack,
+                targeted_u=best_dev.start_u,
+                device=best_dev,
+                port=None,
+                device_world_pos=(dev_cx, dev_cy, dev_cz),
+                distance=best_dev_dist,
+                hint_text=hint
+            )
+
+        # -------------------------------------------------------------
+        # 3. PRIORITY 3: Server Rack Mounting Front Plane (Empty U Slots)
+        # Intersect ray with rack front plane (Z = cz + 0.402)
+        # -------------------------------------------------------------
+        best_rack_hit: Optional[Tuple[Rack, int, float]] = None
+        best_rack_dist: float = max_dist + 1.0
+
+        for rack in racks:
+            # Front rail plane at rack.position[2] + 0.402
+            z_front = rack.position[2] + 0.402
+            if abs(fz) > 1e-5:
+                t = (z_front - ez) / fz
+                if 0.1 < t < best_rack_dist:
+                    hit_x = ex + t * fx
+                    hit_y = ey + t * fy
+                    half_w = rack.width_m / 2.0
+                    if (rack.position[0] - half_w) <= hit_x <= (rack.position[0] + half_w):
+                        if rack.base_y <= hit_y <= (rack.base_y + rack.total_height_m):
+                            target_u = rack.get_u_from_world_y(hit_y)
+                            best_rack_dist = t
+                            best_rack_hit = (rack, target_u, t)
+
+        if best_rack_hit is not None:
+            rack, target_u, dist = best_rack_hit
+            dev_at_u = rack.get_device_at_u(target_u)
+            if dev_at_u:
+                dev_cx, dev_cy, dev_cz = dev_at_u.position or (rack.position[0], rack.get_world_y_for_u(dev_at_u.start_u), rack.position[2] + 0.15)
+                hint = f"[E] Open CLI on {dev_at_u.hostname}" if mode == "CABLING_CLI" else f"[E] Remove {dev_at_u.hostname}"
+                return InteractionTarget(
+                    target_type="DEVICE",
+                    interactable=rack,
+                    rack=rack,
+                    targeted_u=target_u,
+                    device=dev_at_u,
+                    port=None,
+                    device_world_pos=(dev_cx, dev_cy, dev_cz),
+                    distance=dist,
+                    hint_text=hint
+                )
+            else:
                 if mode == "HARDWARE_MGMT":
-                    hint = f"[E] Install Device at {item.rack_id} U{target_u}"
+                    hint = f"[E] Install Device at {rack.rack_id} U{target_u}"
                 else:
-                    hint = f"{item.rack_id} [Slot U{target_u} Available] | [R] Hardware Mode"
+                    hint = f"{rack.rack_id} [Slot U{target_u} Available] | [R] Hardware Mode"
 
                 return InteractionTarget(
                     target_type="RACK",
-                    interactable=item,
-                    rack=item,
+                    interactable=rack,
+                    rack=rack,
                     targeted_u=target_u,
                     device=None,
                     port=None,
@@ -213,18 +275,26 @@ class InteractionDetector:
                     hint_text=hint
                 )
 
-        # If targeted item is the Workstation Desk
-        elif isinstance(item, Desk):
-            return InteractionTarget(
-                target_type="DESK",
-                interactable=item,
-                distance=dist,
-                hint_text="[E] Engineer Workstation CLI"
-            )
+        # -------------------------------------------------------------
+        # 4. PRIORITY 4: Other Interactables (e.g. Workstation Desk)
+        # -------------------------------------------------------------
+        for item in other_items:
+            box = item.get_bounding_box()
+            res = self.ray_aabb_intersect(eye_pos, forward, box, max_dist)
+            if res is not None:
+                dist, _ = res
+                if isinstance(item, Desk):
+                    return InteractionTarget(
+                        target_type="DESK",
+                        interactable=item,
+                        distance=dist,
+                        hint_text="[E] Engineer Workstation CLI"
+                    )
+                return InteractionTarget(
+                    target_type="GENERIC",
+                    interactable=item,
+                    distance=dist,
+                    hint_text=item.get_interaction_hint()
+                )
 
-        return InteractionTarget(
-            target_type="GENERIC",
-            interactable=item,
-            distance=dist,
-            hint_text=item.get_interaction_hint()
-        )
+        return InteractionTarget(target_type="NONE")

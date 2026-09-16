@@ -66,28 +66,27 @@ class HUD:
             ui.draw_rect_outline(cb_x, cb_y, cb_w, cb_h, (250, 204, 21), line_width=1.5)
             ui.draw_text(cable_banner, self.screen_w / 2.0, cb_y + cb_h / 2.0, font_size=14, color=(250, 204, 21), center_x=True, center_y=True)
 
-        # 2. Modern Tactical Corner-Bracket Reticle in Screen Center (Matching User Design)
+        # 2. Sleek Tactical Corner-Bracket Reticle in Screen Center (Matching User Reference Image)
         cx = round(self.screen_w / 2.0)
         cy = round(self.screen_h / 2.0)
-        box_r = 18.0  # half size of 36x36 square bracket frame
-        arm = 10.0    # bracket arm length
-        th = 3.0      # line thickness
+        box_r = 11.0  # compact 22x22 square frame
+        arm = 5.0     # elegant bracket arm length
+        th = 1.8      # crisp, sleek line thickness
 
         if target.target_type == "PORT":
-            ret_col = (245, 158, 11)   # Glowing amber for RJ45 port
+            ret_col = (245, 158, 11)   # Radiant Amber for RJ45 port
         elif target.target_type != "NONE":
-            ret_col = (14, 165, 233)   # Vibrant Cyan/Blue for targeted device
+            ret_col = (37, 99, 235)    # Vibrant Royal Blue for targeted device
         else:
-            ret_col = (59, 130, 246)   # Tactical Sky Blue matching reference image
+            ret_col = (56, 189, 248)   # Crisp Tactical Sky Blue matching reference image
 
+        # Clean subtle drop shadow for readability against white walls/lights without bulkiness
         shadow_col = (15, 23, 42)
-        shadow_alpha = 0.70
+        shadow_alpha = 0.40
 
         def draw_bracket_bar(bx: float, by: float, bw: float, bh: float):
-            # 1px drop outline for maximum visibility against any background (white, dark, colored)
-            ui.draw_rect(bx - 1.0, by - 1.0, bw + 2.0, bh + 2.0, shadow_col, alpha=shadow_alpha)
-            # Main vibrant reticle line
-            ui.draw_rect(bx, by, bw, bh, ret_col, alpha=1.0)
+            ui.draw_rect(bx + 0.8, by + 0.8, bw, bh, shadow_col, alpha=shadow_alpha)
+            ui.draw_rect(bx, by, bw, bh, ret_col, alpha=0.95)
 
         # Top-Left Bracket ┌
         draw_bracket_bar(cx - box_r, cy - box_r, arm, th)
@@ -105,9 +104,10 @@ class HUD:
         draw_bracket_bar(cx + box_r - arm, cy + box_r - th, arm, th)
         draw_bracket_bar(cx + box_r - th, cy + box_r - arm, th, arm)
 
-        # Center Reticle Plus / Diamond (+)
-        draw_bracket_bar(cx - 4.0, cy - 1.5, 8.0, 3.0)
-        draw_bracket_bar(cx - 1.5, cy - 4.0, 3.0, 8.0)
+        # Center Aiming Reticle Diamond (✦) - The EXACT focal point of the raycast
+        draw_bracket_bar(cx - 2.5, cy - 0.75, 5.0, 1.5)
+        draw_bracket_bar(cx - 0.75, cy - 2.5, 1.5, 5.0)
+        draw_bracket_bar(cx - 1.0, cy - 1.0, 2.0, 2.0)
 
         # 3. Dynamic Interaction Tooltip below Crosshair
         if target.target_type != "NONE" and target.hint_text:
