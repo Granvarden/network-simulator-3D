@@ -36,10 +36,10 @@ class UIRenderer:
 
         if corner_radius <= 1.0:
             glBegin(GL_QUADS)
-            glVertex2f(x, y)
-            glVertex2f(x + w, y)
-            glVertex2f(x + w, y + h)
             glVertex2f(x, y + h)
+            glVertex2f(x + w, y + h)
+            glVertex2f(x + w, y)
+            glVertex2f(x, y)
             glEnd()
             return
 

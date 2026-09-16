@@ -46,6 +46,7 @@ class Renderer:
         """Setup 3D perspective projection."""
         glEnable(GL_DEPTH_TEST)
         glEnable(GL_LIGHTING)
+        glEnable(GL_CULL_FACE)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         aspect = self.width / float(self.height)
@@ -55,6 +56,7 @@ class Renderer:
         """Switch to 2D orthographic projection for pixel-perfect UI rendering."""
         glDisable(GL_DEPTH_TEST)
         glDisable(GL_LIGHTING)
+        glDisable(GL_CULL_FACE)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
         glOrtho(0.0, float(self.width), float(self.height), 0.0, -1.0, 1.0)

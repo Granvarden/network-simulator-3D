@@ -69,39 +69,45 @@ class HUD:
         # 2. Modern Tactical Corner-Bracket Reticle in Screen Center (Matching User Design)
         cx = round(self.screen_w / 2.0)
         cy = round(self.screen_h / 2.0)
-        box_r = 14.0  # half size of 28x28 square frame
-        arm = 6.0     # bracket arm length
-        th = 2.0      # line thickness
+        box_r = 18.0  # half size of 36x36 square bracket frame
+        arm = 10.0    # bracket arm length
+        th = 3.0      # line thickness
 
         if target.target_type == "PORT":
             ret_col = (245, 158, 11)   # Glowing amber for RJ45 port
-            alpha = 1.0
         elif target.target_type != "NONE":
-            ret_col = (37, 99, 235)    # Vibrant Royal Blue for targeted device
-            alpha = 1.0
+            ret_col = (14, 165, 233)   # Vibrant Cyan/Blue for targeted device
         else:
-            ret_col = (59, 130, 246)   # Tactical blue matching reference image
-            alpha = 0.85
+            ret_col = (59, 130, 246)   # Tactical Sky Blue matching reference image
+
+        shadow_col = (15, 23, 42)
+        shadow_alpha = 0.70
+
+        def draw_bracket_bar(bx: float, by: float, bw: float, bh: float):
+            # 1px drop outline for maximum visibility against any background (white, dark, colored)
+            ui.draw_rect(bx - 1.0, by - 1.0, bw + 2.0, bh + 2.0, shadow_col, alpha=shadow_alpha)
+            # Main vibrant reticle line
+            ui.draw_rect(bx, by, bw, bh, ret_col, alpha=1.0)
 
         # Top-Left Bracket ┌
-        ui.draw_rect(cx - box_r, cy - box_r, arm, th, ret_col, alpha=alpha)
-        ui.draw_rect(cx - box_r, cy - box_r, th, arm, ret_col, alpha=alpha)
+        draw_bracket_bar(cx - box_r, cy - box_r, arm, th)
+        draw_bracket_bar(cx - box_r, cy - box_r, th, arm)
 
         # Top-Right Bracket ┐
-        ui.draw_rect(cx + box_r - arm, cy - box_r, arm, th, ret_col, alpha=alpha)
-        ui.draw_rect(cx + box_r - th, cy - box_r, th, arm, ret_col, alpha=alpha)
+        draw_bracket_bar(cx + box_r - arm, cy - box_r, arm, th)
+        draw_bracket_bar(cx + box_r - th, cy - box_r, th, arm)
 
         # Bottom-Left Bracket └
-        ui.draw_rect(cx - box_r, cy + box_r - th, arm, th, ret_col, alpha=alpha)
-        ui.draw_rect(cx - box_r, cy + box_r - arm, th, arm, ret_col, alpha=alpha)
+        draw_bracket_bar(cx - box_r, cy + box_r - th, arm, th)
+        draw_bracket_bar(cx - box_r, cy + box_r - arm, th, arm)
 
         # Bottom-Right Bracket ┘
-        ui.draw_rect(cx + box_r - arm, cy + box_r - th, arm, th, ret_col, alpha=alpha)
-        ui.draw_rect(cx + box_r - th, cy + box_r - arm, th, arm, ret_col, alpha=alpha)
+        draw_bracket_bar(cx + box_r - arm, cy + box_r - th, arm, th)
+        draw_bracket_bar(cx + box_r - th, cy + box_r - arm, th, arm)
 
         # Center Reticle Plus / Diamond (+)
-        ui.draw_rect(cx - 2.5, cy - 1.0, 5.0, 2.0, ret_col, alpha=alpha)
-        ui.draw_rect(cx - 1.0, cy - 2.5, 2.0, 5.0, ret_col, alpha=alpha)
+        draw_bracket_bar(cx - 4.0, cy - 1.5, 8.0, 3.0)
+        draw_bracket_bar(cx - 1.5, cy - 4.0, 3.0, 8.0)
 
         # 3. Dynamic Interaction Tooltip below Crosshair
         if target.target_type != "NONE" and target.hint_text:
