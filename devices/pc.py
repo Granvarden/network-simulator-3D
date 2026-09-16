@@ -26,7 +26,7 @@ class PC(Device):
             mac_address=f"00:50:56:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:AA:BB"
         )
         eth0.admin_status = AdminStatus.UP
-        eth0.local_slot_pos = (0.15, 0.0, 0.44)
+        eth0.local_slot_pos = (0.12, -0.015, 0.252)
         self.add_port(eth0)
 
     @property

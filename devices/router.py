@@ -18,13 +18,15 @@ class Router(Device):
 
     def _init_ports(self) -> None:
         """Create default Gigabit Ethernet ports and Console port."""
+        face_z = 0.252
+
         g0 = Port(
             port_id=f"{self.device_id}_gi0_0",
             port_name="Gi0/0",
             port_type=PortType.GIGABIT_ETHERNET,
             mac_address=f"00:11:22:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:00:00"
         )
-        g0.local_slot_pos = (-0.18, 0.0, 0.44)
+        g0.local_slot_pos = (0.04, -0.015, face_z)
         self.add_port(g0)
 
         g1 = Port(
@@ -33,7 +35,7 @@ class Router(Device):
             port_type=PortType.GIGABIT_ETHERNET,
             mac_address=f"00:11:22:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:00:01"
         )
-        g1.local_slot_pos = (-0.10, 0.0, 0.44)
+        g1.local_slot_pos = (0.09, -0.015, face_z)
         self.add_port(g1)
 
         con = Port(
@@ -41,7 +43,7 @@ class Router(Device):
             port_name="Console",
             port_type=PortType.CONSOLE
         )
-        con.local_slot_pos = (0.15, 0.0, 0.44)
+        con.local_slot_pos = (0.15, -0.015, face_z)
         self.add_port(con)
 
     def add_static_route(self, dest_net: str, netmask: str, next_hop: str) -> None:

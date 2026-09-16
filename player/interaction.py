@@ -117,9 +117,12 @@ class InteractionDetector:
             device_at_u = item.get_device_at_u(target_u)
 
             if device_at_u:
-                dev_cy = item.get_world_y_for_u(device_at_u.start_u) + (device_at_u.u_height * item.u_height_m) / 2.0
-                dev_cz = item.position[2] + 0.12
-                dev_cx = item.position[0]
+                if device_at_u.position:
+                    dev_cx, dev_cy, dev_cz = device_at_u.position
+                else:
+                    dev_cy = item.get_world_y_for_u(device_at_u.start_u) + (device_at_u.u_height * item.u_height_m) / 2.0
+                    dev_cz = item.position[2] + 0.15
+                    dev_cx = item.position[0]
                 dev_pos = (dev_cx, dev_cy, dev_cz)
 
                 # Check if ray hits any specific RJ45 Port on this device
@@ -132,8 +135,8 @@ class InteractionDetector:
                     p_wx = dev_cx + lx
                     p_wy = dev_cy + ly
                     p_wz = dev_cz + lz
-                    # Generous port bounding box for comfortable aiming
-                    p_box = (p_wx - 0.022, p_wy - 0.016, p_wz - 0.030, p_wx + 0.022, p_wy + 0.016, p_wz + 0.030)
+                    # Precision port bounding box for comfortable, accurate aiming
+                    p_box = (p_wx - 0.016, p_wy - 0.012, p_wz - 0.025, p_wx + 0.016, p_wy + 0.012, p_wz + 0.025)
                     p_res = self.ray_aabb_intersect(eye_pos, forward, p_box, max_dist)
                     if p_res is not None:
                         p_dist, _ = p_res

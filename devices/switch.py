@@ -32,12 +32,12 @@ class Switch(Device):
             )
             # Switches default to Admin UP (standard Cisco default for switchports)
             port.admin_status = AdminStatus.UP
-            # Local 3D slot layout (2 rows of 12 ports across faceplate)
+            # Local 3D slot layout (2 rows of 12 ports centered on faceplate)
             col = (i - 1) % 12
             row = (i - 1) // 12
-            x_offset = -0.22 + col * 0.038
+            x_offset = -0.13 + col * 0.024
             y_offset = -0.008 if row == 0 else 0.008
-            port.local_slot_pos = (x_offset, y_offset, 0.44)
+            port.local_slot_pos = (x_offset, y_offset, 0.252)
 
             self.add_port(port)
 

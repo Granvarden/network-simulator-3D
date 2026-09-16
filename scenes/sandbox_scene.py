@@ -381,20 +381,20 @@ class SandboxScene(Scene):
             cx, cy, cz = target.device_world_pos
             sy = target.device.u_height * 0.04445
             box_col = (0.22, 0.74, 0.97) if self.interaction_mode == "CABLING_CLI" else (0.96, 0.62, 0.05)
-            draw_wire_box(cx, cy, cz, 0.49, sy, 0.45, box_col, line_width=2.0)
+            draw_wire_box(cx, cy, cz, 0.48, sy, 0.50, box_col, line_width=2.0)
 
-        # 2. Highlight targeted Port (Glowing amber wireframe box)
+        # 2. Highlight targeted Port (Glowing amber wireframe box tightly surrounding RJ45 socket)
         if target.port and target.port_world_pos:
             px, py, pz = target.port_world_pos
-            draw_wire_box(px, py, pz, 0.032, 0.024, 0.035, (0.98, 0.75, 0.12), line_width=2.5)
+            draw_wire_box(px, py, pz, 0.024, 0.016, 0.012, (0.98, 0.75, 0.12), line_width=2.5)
 
         # 3. Highlight targeted empty U-slot in Hardware Management mode
         if target.target_type == "RACK" and target.targeted_u and target.rack and self.interaction_mode == "HARDWARE_MGMT":
             slot_sy = 0.04445
             slot_cy = target.rack.get_world_y_for_u(target.targeted_u) + slot_sy / 2.0
             draw_wire_box(
-                target.rack.position[0], slot_cy, target.rack.position[2] + 0.12,
-                0.49, slot_sy, 0.45,
+                target.rack.position[0], slot_cy, target.rack.position[2] + 0.15,
+                0.48, slot_sy, 0.50,
                 (0.96, 0.62, 0.05), line_width=2.0
             )
 

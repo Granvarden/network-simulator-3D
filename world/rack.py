@@ -94,9 +94,9 @@ class Rack(Interactable):
         device.start_u = start_u
         end_u = start_u + device.u_height - 1
 
-        # Calculate exact 3D center position
+        # Calculate exact 3D center position (chassis depth 0.50m mounted to front rail at cz + 0.40m)
         center_y = self.get_world_y_for_u(start_u) + (device.u_height * self.u_height_m) / 2.0
-        device.position = (self.position[0], center_y, self.position[2])
+        device.position = (self.position[0], center_y, self.position[2] + 0.15)
 
         # Register occupied slots
         for u in range(start_u, end_u + 1):
@@ -164,17 +164,16 @@ class Rack(Interactable):
 
         # Render Installed Devices
         for device in self.devices:
-            if device.start_u is None:
+            if device.start_u is None or not device.position:
                 continue
-            dev_cy = self.get_world_y_for_u(device.start_u) + (device.u_height * self.u_height_m) / 2.0
-            dev_cz = cz + 0.12  # Mounted in front rail
+            dev_cx, dev_cy, dev_cz = device.position
 
             if device.device_type == "Router":
-                self._router_model.render(device, cx, dev_cy, dev_cz)
+                self._router_model.render(device, dev_cx, dev_cy, dev_cz)
             elif device.device_type == "Switch":
-                self._switch_model.render(device, cx, dev_cy, dev_cz)
+                self._switch_model.render(device, dev_cx, dev_cy, dev_cz)
             elif device.device_type == "PC":
-                self._pc_model.render(device, cx, dev_cy, dev_cz)
+                self._pc_model.render(device, dev_cx, dev_cy, dev_cz)
 
         # Rack ID Sign at Top
         sign_color = (0.2, 0.5, 0.9) if "A" in self.rack_id else ((0.2, 0.7, 0.5) if "B" in self.rack_id else (0.9, 0.5, 0.2))
