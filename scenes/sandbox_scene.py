@@ -63,6 +63,8 @@ class SandboxScene(Scene):
 
         # Active sub-mode states
         self.active_modal: Optional[str] = None  # None, "INTERACTION", "INVENTORY", "CLI"
+        self.sens_notification: str = ""
+        self.sens_timer: float = 0.0
 
         # Initialize default lab devices for immediate playability
         self._setup_initial_lab_devices()
@@ -188,6 +190,19 @@ class SandboxScene(Scene):
                     input_mgr.set_mouse_locked(False)
                     return True
 
+            # Quick Mouse Sensitivity adjustment: [ / ] or - / =
+            elif event.key in (pygame.K_LEFTBRACKET, pygame.K_MINUS):
+                self.player.controller.sensitivity = max(0.05, round(self.player.controller.sensitivity - 0.05, 2))
+                self.sens_notification = f"Sensitivity: {self.player.controller.sensitivity:.2f}"
+                self.sens_timer = 2.0
+                return True
+
+            elif event.key in (pygame.K_RIGHTBRACKET, pygame.K_EQUALS):
+                self.player.controller.sensitivity = min(1.50, round(self.player.controller.sensitivity + 0.05, 2))
+                self.sens_notification = f"Sensitivity: {self.player.controller.sensitivity:.2f}"
+                self.sens_timer = 2.0
+                return True
+
         return False
 
     def update(self, dt: float) -> None:
@@ -200,6 +215,12 @@ class SandboxScene(Scene):
         # Update modal animations / timers
         if self.active_modal == "CLI":
             self.terminal_ui.update(dt)
+
+        # Update sensitivity notification timer
+        if self.sens_timer > 0.0:
+            self.sens_timer -= dt
+            if self.sens_timer <= 0.0:
+                self.sens_notification = ""
 
         # Sync network links
         self.network_engine.update_links()
@@ -235,6 +256,16 @@ class SandboxScene(Scene):
             target=self.player.current_target,
             network_status="ONLINE"
         )
+
+        # Sensitivity change notification pill
+        if self.sens_notification:
+            pill_w = 200
+            pill_h = 32
+            pill_x = self.hud.screen_w / 2.0 - pill_w / 2.0
+            pill_y = 54
+            ui.draw_rect(pill_x, pill_y, pill_w, pill_h, (15, 23, 42), alpha=0.92, corner_radius=16.0)
+            ui.draw_rect_outline(pill_x, pill_y, pill_w, pill_h, (56, 189, 248), line_width=1.5)
+            ui.draw_text(self.sens_notification, self.hud.screen_w / 2.0, pill_y + pill_h / 2.0, font_size=13, color=(56, 189, 248), center_x=True, center_y=True)
 
         # Render active modal dialog
         if self.active_modal == "INTERACTION":

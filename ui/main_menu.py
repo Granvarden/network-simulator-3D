@@ -7,6 +7,7 @@ from config.graphics_config import GraphicsConfig
 from rendering.ui_renderer import UIRenderer
 from .widgets.button import Button
 from .widgets.panel import Panel
+from .widgets.slider import Slider
 
 
 class MainMenuUI:
@@ -81,21 +82,27 @@ class MainMenuUI:
         # Settings Close Button
         self.settings_close_btn = Button(
             (self.screen_w - 180) / 2.0, (self.screen_h / 2.0) + 125, 180, 42,
-            "Close",
+            "Save & Close",
             on_click=self._toggle_settings,
             is_primary=True
         )
 
-        # Sensitivity buttons
-        sens_y = (self.screen_h / 2.0) + 40
-        sens_w = 80
-        sens_start_x = (self.screen_w - 420) / 2.0 + 30
-        self.sens_buttons = [
-            Button(sens_start_x, sens_y, sens_w, 34, "0.20", on_click=lambda: self._set_sensitivity(0.20)),
-            Button(sens_start_x + 90, sens_y, sens_w, 34, "0.35", on_click=lambda: self._set_sensitivity(0.35)),
-            Button(sens_start_x + 180, sens_y, sens_w, 34, "0.50", on_click=lambda: self._set_sensitivity(0.50)),
-            Button(sens_start_x + 270, sens_y, sens_w, 34, "0.70", on_click=lambda: self._set_sensitivity(0.70)),
-        ]
+        # Sensitivity Scroll Slider widget
+        slider_w = 270
+        slider_x = (self.screen_w - 440) / 2.0 + 35
+        slider_y = (self.screen_h / 2.0) + 20
+        self.sens_slider = Slider(
+            x=slider_x,
+            y=slider_y,
+            w=slider_w,
+            h=32,
+            min_val=0.05,
+            max_val=1.20,
+            initial_val=self.mouse_sensitivity,
+            step=0.01,
+            label="Mouse Sensitivity",
+            on_change=self._set_sensitivity
+        )
 
     def resize(self, w: int, h: int) -> None:
         """Handle screen resize."""
@@ -113,9 +120,8 @@ class MainMenuUI:
         if self.show_settings:
             if self.settings_close_btn.handle_event(event):
                 return True
-            for btn in self.sens_buttons:
-                if btn.handle_event(event):
-                    return True
+            if self.sens_slider.handle_event(event):
+                return True
             return False
 
         for btn in self.buttons:
@@ -195,12 +201,10 @@ class MainMenuUI:
             settings_panel.render(ui)
 
             ui.draw_text("Settings", sx + sw / 2.0, sy + 30, font_size=20, color=GraphicsConfig.COLOR_TEXT_PRIMARY, center_x=True)
-            ui.draw_text(f"Display Mode: Maximized Window (Taskbar Visible)", sx + 30, sy + 70, font_size=14, color=GraphicsConfig.COLOR_TEXT_PRIMARY)
-            ui.draw_text(f"Resolution: {self.screen_w}x{self.screen_h} (60 FPS VSync)", sx + 30, sy + 95, font_size=14, color=GraphicsConfig.COLOR_TEXT_PRIMARY)
-            ui.draw_text(f"Mouse Look Sensitivity: {self.mouse_sensitivity:.2f}", sx + 30, sy + 130, font_size=14, color=GraphicsConfig.COLOR_PRIMARY_BLUE)
+            ui.draw_text("Display Mode: Maximized Window (Taskbar Visible)", sx + 30, sy + 65, font_size=13, color=GraphicsConfig.COLOR_TEXT_PRIMARY)
+            ui.draw_text(f"Resolution: {self.screen_w}x{self.screen_h} (60 FPS VSync)", sx + 30, sy + 90, font_size=13, color=GraphicsConfig.COLOR_TEXT_PRIMARY)
+            ui.draw_text(f"Mouse Look Sensitivity: {self.mouse_sensitivity:.2f}", sx + 30, sy + 125, font_size=14, color=GraphicsConfig.COLOR_PRIMARY_BLUE)
+            ui.draw_text("Scroll mouse wheel or drag slider to adjust:", sx + 30, sy + 150, font_size=12, color=GraphicsConfig.COLOR_TEXT_MUTED)
 
-            for btn in self.sens_buttons:
-                btn.is_primary = (abs(float(btn.text) - self.mouse_sensitivity) < 0.01)
-                btn.render(ui)
-
+            self.sens_slider.render(ui)
             self.settings_close_btn.render(ui)
