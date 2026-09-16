@@ -25,7 +25,14 @@ class Player:
     def eye_position(self) -> Tuple[float, float, float]:
         return (self.camera.x, self.camera.y, self.camera.z)
 
-    def update(self, dt: float, input_mgr: InputManager, world: World) -> None:
+    def update(
+        self,
+        dt: float,
+        input_mgr: InputManager,
+        world: World,
+        mode: str = "CABLING_CLI",
+        has_held_cable: bool = False
+    ) -> None:
         """Update physics, camera, and crosshair raycast targeting."""
         collision_boxes = world.get_collision_boxes()
         self.controller.update(dt, input_mgr, collision_boxes)
@@ -36,5 +43,7 @@ class Player:
         self.current_target = self.interaction_detector.find_target(
             eye_pos=eye_pos,
             forward=fwd,
-            interactables=world.get_all_interactables()
+            interactables=world.get_all_interactables(),
+            mode=mode,
+            has_held_cable=has_held_cable
         )

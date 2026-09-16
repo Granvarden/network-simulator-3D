@@ -21,7 +21,7 @@ class GameConfig:
     SPRINT_SPEED: float = 7.0
     JUMP_VELOCITY: float = 4.5
     GRAVITY: float = 12.0
-    MOUSE_SENSITIVITY: float = 0.35
+    MOUSE_SENSITIVITY: float = 0.14
     MAX_PITCH: float = 89.0
 
     # Interaction

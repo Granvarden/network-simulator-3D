@@ -10,19 +10,25 @@ from world.desk import Desk
 from world.interactable import Interactable
 
 
+from devices.port import Port
+
+
 @dataclass
 class InteractionTarget:
-    target_type: str  # "RACK", "DEVICE", "DESK", "NONE"
+    target_type: str  # "PORT", "DEVICE", "RACK", "DESK", "NONE"
     interactable: Optional[Interactable] = None
     rack: Optional[Rack] = None
     targeted_u: Optional[int] = None
     device: Optional[Device] = None
+    port: Optional[Port] = None
+    port_world_pos: Optional[Tuple[float, float, float]] = None
+    device_world_pos: Optional[Tuple[float, float, float]] = None
     distance: float = 0.0
     hint_text: str = ""
 
 
 class InteractionDetector:
-    """Performs 3D raycasting from player eye to detect objects within reach."""
+    """Performs 3D raycasting from player eye to detect objects and ports within reach."""
 
     @staticmethod
     def ray_aabb_intersect(
@@ -83,9 +89,11 @@ class InteractionDetector:
         eye_pos: Tuple[float, float, float],
         forward: Tuple[float, float, float],
         interactables: List[Interactable],
-        max_dist: float = GameConfig.INTERACT_MAX_DISTANCE
+        max_dist: float = GameConfig.INTERACT_MAX_DISTANCE,
+        mode: str = "CABLING_CLI",
+        has_held_cable: bool = False
     ) -> InteractionTarget:
-        """Find the closest interactable in crosshair view within reach."""
+        """Find the closest interactable and RJ45 port in crosshair view within reach."""
         closest_dist = max_dist + 1.0
         best_hit: Optional[Tuple[Interactable, float, float]] = None
 
@@ -109,24 +117,95 @@ class InteractionDetector:
             device_at_u = item.get_device_at_u(target_u)
 
             if device_at_u:
-                hint = f"[E] {device_at_u.hostname} ({device_at_u.device_type}) at {item.rack_id} U{device_at_u.start_u}"
-                return InteractionTarget(
-                    target_type="DEVICE",
-                    interactable=item,
-                    rack=item,
-                    targeted_u=target_u,
-                    device=device_at_u,
-                    distance=dist,
-                    hint_text=hint
-                )
+                dev_cy = item.get_world_y_for_u(device_at_u.start_u) + (device_at_u.u_height * item.u_height_m) / 2.0
+                dev_cz = item.position[2] + 0.12
+                dev_cx = item.position[0]
+                dev_pos = (dev_cx, dev_cy, dev_cz)
+
+                # Check if ray hits any specific RJ45 Port on this device
+                best_port: Optional[Port] = None
+                best_port_dist = 999.0
+                best_port_pos: Optional[Tuple[float, float, float]] = None
+
+                for port in device_at_u.ports.values():
+                    lx, ly, lz = port.local_slot_pos
+                    p_wx = dev_cx + lx
+                    p_wy = dev_cy + ly
+                    p_wz = dev_cz + lz
+                    # Generous port bounding box for comfortable aiming
+                    p_box = (p_wx - 0.022, p_wy - 0.016, p_wz - 0.030, p_wx + 0.022, p_wy + 0.016, p_wz + 0.030)
+                    p_res = self.ray_aabb_intersect(eye_pos, forward, p_box, max_dist)
+                    if p_res is not None:
+                        p_dist, _ = p_res
+                        if p_dist < best_port_dist:
+                            best_port_dist = p_dist
+                            best_port = port
+                            best_port_pos = (p_wx, p_wy, p_wz)
+
+                # Mode 1: Cabling & CLI Mode
+                if mode == "CABLING_CLI":
+                    if best_port:
+                        if has_held_cable:
+                            hint = f"[F] Plug Cable into {device_at_u.hostname}:{best_port.port_name}"
+                        elif best_port.connected_port:
+                            hint = f"[F] Unplug Cable from {device_at_u.hostname}:{best_port.port_name} | [E] Open CLI"
+                        else:
+                            hint = f"[F] Patch Cable from {device_at_u.hostname}:{best_port.port_name} | [E] Open CLI"
+
+                        return InteractionTarget(
+                            target_type="PORT",
+                            interactable=item,
+                            rack=item,
+                            targeted_u=target_u,
+                            device=device_at_u,
+                            port=best_port,
+                            port_world_pos=best_port_pos,
+                            device_world_pos=dev_pos,
+                            distance=best_port_dist,
+                            hint_text=hint
+                        )
+                    else:
+                        hint = f"[E] Open CLI on {device_at_u.hostname} | [R] Hardware Mode"
+                        return InteractionTarget(
+                            target_type="DEVICE",
+                            interactable=item,
+                            rack=item,
+                            targeted_u=target_u,
+                            device=device_at_u,
+                            port=None,
+                            device_world_pos=dev_pos,
+                            distance=dist,
+                            hint_text=hint
+                        )
+                # Mode 2: Hardware Management Mode
+                else:
+                    hint = f"[E] Remove {device_at_u.hostname} from Rack | [R] Cabling Mode"
+                    return InteractionTarget(
+                        target_type="DEVICE",
+                        interactable=item,
+                        rack=item,
+                        targeted_u=target_u,
+                        device=device_at_u,
+                        port=None,
+                        device_world_pos=dev_pos,
+                        distance=dist,
+                        hint_text=hint
+                    )
+
             else:
-                hint = f"[E] {item.rack_id} [Slot U{target_u} Available]"
+                # Empty U Slot
+                if mode == "HARDWARE_MGMT":
+                    hint = f"[E] Install Device at {item.rack_id} U{target_u}"
+                else:
+                    hint = f"{item.rack_id} [Slot U{target_u} Available] | [R] Hardware Mode"
+
                 return InteractionTarget(
                     target_type="RACK",
                     interactable=item,
                     rack=item,
                     targeted_u=target_u,
                     device=None,
+                    port=None,
                     distance=dist,
                     hint_text=hint
                 )
