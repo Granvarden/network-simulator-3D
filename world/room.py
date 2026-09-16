@@ -34,14 +34,14 @@ class Room:
 
         # Fluorescent Overhead Light Fixtures (Glowing long white bars)
         light_color = (0.95, 0.98, 1.0)
-        for z_light in [-4.0, 0.0, 4.0]:
+        for z_light in [-5.8, -1.5, 3.5]:
             for x_light in [-5.0, 0.0, 5.0]:
                 draw_box(x_light, self.height - 0.06, z_light, 2.4, 0.08, 0.4, (0.3, 0.32, 0.35))
                 draw_box(x_light, self.height - 0.11, z_light, 2.2, 0.02, 0.3, light_color)
 
         # Cable Trays (Yellow/steel ladder trays running overhead above racks)
         tray_color = (0.85, 0.70, 0.15)
-        draw_box(0.0, 3.2, -3.0, self.width - 2.0, 0.04, 0.5, tray_color)
+        draw_box(0.0, 3.2, -6.65, self.width - 2.0, 0.04, 0.5, tray_color)
         draw_box(0.0, 3.2, 3.5, self.width - 2.0, 0.04, 0.5, tray_color)
 
         # 4 Boundary Walls

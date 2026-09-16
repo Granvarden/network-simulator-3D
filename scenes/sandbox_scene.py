@@ -36,7 +36,7 @@ class SandboxScene(Scene):
 
         # Simulation Subsystems
         self.world: World = World()
-        self.player: Player = Player(initial_pos=(0.0, 0.0, 1.5))
+        self.player: Player = Player(initial_pos=(0.0, 0.0, -5.2))
         self.inventory: Inventory = Inventory()
         self.network_engine: NetworkEngine = NetworkEngine()
         self.cable_manager: CableManager = CableManager(services.get("event_bus"))

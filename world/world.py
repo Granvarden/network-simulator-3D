@@ -14,18 +14,20 @@ class World:
     def __init__(self):
         self.room: Room = Room()
         self.racks: Dict[str, Rack] = {}
-        self.desk: Desk = Desk(position=(0.0, 0.0, 3.5))
+        # Engineer workstation desk placed against left wall (West wall X = -10.0m)
+        self.desk: Desk = Desk(position=(-9.15, 0.0, -3.5))
 
         self._init_racks()
 
     def _init_racks(self) -> None:
-        """Create 3 standard 42U server racks aligned side-by-side."""
-        # Rack A (Left)
-        self.racks["Rack A"] = Rack(rack_id="Rack A", position=(-3.5, 0.0, -3.0))
+        """Create 3 standard 42U server racks ganged close side-by-side against the back North wall."""
+        back_wall_z = -7.05
+        # Rack A (Left, ganged next to Rack B)
+        self.racks["Rack A"] = Rack(rack_id="Rack A", position=(-0.65, 0.0, back_wall_z))
         # Rack B (Center)
-        self.racks["Rack B"] = Rack(rack_id="Rack B", position=(0.0, 0.0, -3.0))
-        # Rack C (Right)
-        self.racks["Rack C"] = Rack(rack_id="Rack C", position=(3.5, 0.0, -3.0))
+        self.racks["Rack B"] = Rack(rack_id="Rack B", position=(0.0, 0.0, back_wall_z))
+        # Rack C (Right, ganged next to Rack B)
+        self.racks["Rack C"] = Rack(rack_id="Rack C", position=(0.65, 0.0, back_wall_z))
 
     def get_all_interactables(self) -> List[Interactable]:
         """Return list of all interactable world entities."""

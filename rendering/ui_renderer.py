@@ -106,8 +106,8 @@ class UIRenderer:
 
             tex_id = glGenTextures(1)
             glBindTexture(GL_TEXTURE_2D, tex_id)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data)
 
             # Cap cache size
@@ -118,8 +118,8 @@ class UIRenderer:
 
             self._text_cache[cache_key] = (tex_id, tw, th)
 
-        draw_x = x - (tw / 2.0 if center_x else 0.0)
-        draw_y = y - (th / 2.0 if center_y else 0.0)
+        draw_x = round(x - (tw / 2.0 if center_x else 0.0))
+        draw_y = round(y - (th / 2.0 if center_y else 0.0))
 
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, tex_id)

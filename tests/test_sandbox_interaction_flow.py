@@ -41,15 +41,15 @@ def test_sandbox_cabling_and_cli_flow():
     assert scene.active_modal is None
 
     # 1. Point camera towards Rack A (where R1 is installed at U28)
-    # Rack A is at (0, 0, -3.0)
-    scene.player.controller.x = 0.0
+    # Rack A is at (-0.65, 0.0, -7.05)
+    scene.player.controller.x = -0.65
     scene.player.controller.y = 0.0
-    scene.player.controller.z = -1.8
-    scene.player.camera.x = 0.0
+    scene.player.controller.z = -5.2
+    scene.player.camera.x = -0.65
     scene.player.camera.y = 1.7
-    scene.player.camera.z = -1.8
+    scene.player.camera.z = -5.2
     scene.player.camera.yaw = -90.0  # Face towards -Z
-    scene.player.camera.pitch = -16.0
+    scene.player.camera.pitch = -14.5
 
     # Run one update frame
     input_mgr = scene.services.get("input_manager")
@@ -64,7 +64,7 @@ def test_sandbox_cabling_and_cli_flow():
         handled = scene.handle_event(e_event)
         assert handled is True
         assert scene.active_modal == "CLI"
-        assert scene.cli_engine.current_device == target.device
+        assert scene.cli_engine.active_device == target.device
 
         # Close terminal
         scene._close_terminal()
