@@ -63,12 +63,12 @@ class RouterModel(DeviceModel):
             draw_box(screen_cx, screen_cy, face_z + 0.004, 0.040, 0.003, 0.001, (0.90, 0.98, 1.0))
 
         # Diagnostic Status LED Cluster (PWR, SYS, ACT) below screen
-        pwr_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
-        sys_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
-        act_col = (0.20, 0.92, 0.35) if device.power_state else GraphicsConfig.COLOR_LED_OFF
-        draw_box(cx - 0.066, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, pwr_col)
-        draw_box(cx - 0.050, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, sys_col)
-        draw_box(cx - 0.034, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, act_col)
+        pwr_col = (0.12, 0.95, 0.30) if device.power_state else GraphicsConfig.COLOR_LED_OFF
+        sys_col = (0.12, 0.95, 0.30) if device.power_state else GraphicsConfig.COLOR_LED_OFF
+        act_col = (0.22, 1.00, 0.40) if device.power_state else GraphicsConfig.COLOR_LED_OFF
+        draw_emissive_box(cx - 0.066, cy - 0.015, face_z + 0.003, 0.005, 0.005, 0.002, pwr_col)
+        draw_emissive_box(cx - 0.050, cy - 0.015, face_z + 0.003, 0.005, 0.005, 0.002, sys_col)
+        draw_emissive_box(cx - 0.034, cy - 0.015, face_z + 0.003, 0.005, 0.005, 0.002, act_col)
 
         # 6. Right Equipment Module Plate (4x Gigabit Ethernet + 1x Console)
         port_base_z = face_z + 0.002
@@ -76,12 +76,12 @@ class RouterModel(DeviceModel):
 
         # 4 Gigabit Ethernet RJ45 Ports (Gi0/0 - Gi0/3)
         router_ports = [
-            ("Gi0/0", 0.020),
-            ("Gi0/1", 0.055),
-            ("Gi0/2", 0.090),
-            ("Gi0/3", 0.125),
+            ("Gi0/0", 0.020, "0"),
+            ("Gi0/1", 0.055, "1"),
+            ("Gi0/2", 0.090, "2"),
+            ("Gi0/3", 0.125, "3"),
         ]
-        for p_name, lx in router_ports:
+        for p_name, lx, p_lbl in router_ports:
             port = device.get_port(p_name)
             px = cx + lx
             py = cy - 0.015
@@ -93,9 +93,18 @@ class RouterModel(DeviceModel):
             draw_box(px, py, pz + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
             # Gold contact pins inside socket
             draw_box(px, py + 0.002, pz + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
-            # Link LED
-            led_c = GraphicsConfig.COLOR_LED_GREEN if (port and port.is_operational) else GraphicsConfig.COLOR_LED_OFF
-            draw_box(px, py + 0.012, pz, 0.004, 0.003, 0.002, led_c)
+
+            # Real-time Dual Port Status LEDs (LNK / ACT)
+            lnk_c, act_c = self.get_port_led_colors(port)
+            led_y = py + 0.011
+            led_z = pz + 0.003
+            # Left: Link status LED (Green=Up, Amber=Connected but Down/Error, Off=Unplugged)
+            draw_emissive_box(px - 0.004, led_y, led_z, 0.0035, 0.0025, 0.002, lnk_c)
+            # Right: Activity / Speed LED (Blinking/Glowing Green when active, Off when down)
+            draw_emissive_box(px + 0.004, led_y, led_z, 0.0035, 0.0025, 0.002, act_c)
+
+            # Silkscreen Port Label Tab under socket
+            draw_box(px, py - 0.011, pz + 0.001, 0.012, 0.003, 0.001, (0.80, 0.84, 0.90))
 
         # Console Port (Local Pos: 0.165, -0.015, 0.252)
         pcon_x = cx + 0.165
@@ -106,6 +115,10 @@ class RouterModel(DeviceModel):
         draw_box(pcon_x, pcon_y, pcon_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
         # "CONSOLE" Blue Label Tab above port
         draw_box(pcon_x, pcon_y + 0.012, pcon_z, 0.018, 0.004, 0.002, (0.85, 0.92, 1.0))
+        # Console Activity LED
+        con_port = device.get_port("Console")
+        con_lnk, _ = self.get_port_led_colors(con_port)
+        draw_emissive_box(pcon_x, pcon_y - 0.011, pcon_z + 0.002, 0.004, 0.003, 0.002, con_lnk if con_port and con_port.connected_port else (0.15, 0.55, 0.85))
 
         # USB / AUX Diagnostic port
         draw_box(cx + 0.192, cy - 0.015, pcon_z, 0.010, 0.007, 0.004, (0.16, 0.18, 0.22))

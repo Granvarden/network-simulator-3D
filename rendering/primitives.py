@@ -57,9 +57,18 @@ def draw_box(
     glVertex3f(cx - hx, cy - hy, cz - hz)
     glVertex3f(cx - hx, cy - hy, cz + hz)
     glVertex3f(cx - hx, cy + hy, cz + hz)
-    glVertex3f(cx - hx, cy + hy, cz - hz)
-
     glEnd()
+
+
+def draw_emissive_box(
+    cx: float, cy: float, cz: float,
+    sx: float, sy: float, sz: float,
+    color: Tuple[float, float, float]
+) -> None:
+    """Draw a vibrant self-illuminating LED box that glows independently of scene lighting."""
+    glDisable(GL_LIGHTING)
+    draw_box(cx, cy, cz, sx, sy, sz, color)
+    glEnable(GL_LIGHTING)
 
 
 def draw_wire_box(

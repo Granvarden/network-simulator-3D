@@ -30,12 +30,38 @@ class PCCLI:
             return self._handle_ping(tokens[1:])
         elif cmd == "arp":
             return self._handle_arp(tokens[1:])
+        elif cmd in ("disable", "shutdown"):
+            p_name = tokens[1].lower() if len(tokens) > 1 else "eth0"
+            port = self.pc.get_port(p_name)
+            if port:
+                from devices.port import AdminStatus
+                port.set_admin_status(AdminStatus.DOWN)
+                if self.network_engine:
+                    self.network_engine.update_links()
+                return [f"Network adapter '{port.port_name}' has been disabled (Admin Down)."]
+            return [f"Error: Interface '{p_name}' not found."]
+        elif cmd in ("enable", "no"):
+            p_name = "eth0"
+            if cmd == "enable" and len(tokens) > 1:
+                p_name = tokens[1].lower()
+            elif cmd == "no" and len(tokens) > 1 and tokens[1].lower() in ("shutdown", "shut"):
+                p_name = tokens[2].lower() if len(tokens) > 2 else "eth0"
+            port = self.pc.get_port(p_name)
+            if port:
+                from devices.port import AdminStatus
+                port.set_admin_status(AdminStatus.UP)
+                if self.network_engine:
+                    self.network_engine.update_links()
+                return [f"Network adapter '{port.port_name}' has been enabled (Admin Up)."]
+            return [f"Error: Interface '{p_name}' not found."]
         elif cmd == "help":
             return [
                 "Available PC Commands:",
                 "  ipconfig                         Display basic network configuration",
                 "  ipconfig /all                    Display full network details (MAC, Gateway)",
                 "  ipconfig /set <ip> <mask> [gw]   Configure IP, subnet mask, and default gateway",
+                "  disable [adapter]                Disable network adapter (eth0 / eth1)",
+                "  enable [adapter]                 Enable network adapter (eth0 / eth1)",
                 "  ping <destination_ip>            Send ICMP echo requests to target",
                 "  arp -a                           Display ARP cache table",
                 "  exit                             Close command prompt"

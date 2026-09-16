@@ -74,34 +74,38 @@ class PCModel(DeviceModel):
 
         # Server Health Heartbeat LED & System ID Button
         health_col = (0.2, 0.7, 1.0) if device.power_state else GraphicsConfig.COLOR_LED_OFF
-        draw_box(cx + 0.145, cy + 0.020, face_z + 0.003, 0.005, 0.005, 0.002, health_col)
+        draw_emissive_box(cx + 0.145, cy + 0.020, face_z + 0.003, 0.005, 0.005, 0.002, health_col)
         draw_box(cx + 0.130, cy + 0.020, face_z + 0.003, 0.006, 0.006, 0.002, (0.25, 0.28, 0.32))
 
-        # 6. Front Maintenance Ethernet Port (eth0) (Local Pos: 0.12, -0.015, 0.252)
-        eth0 = device.get_port("eth0")
-        eth_x = cx + 0.12
-        eth_y = cy - 0.015
-        eth_z = face_z + 0.002
+        # 6. Front Maintenance Ethernet Ports (eth0 & eth1) with Real-Time Status LEDs
+        pc_ports = [
+            ("eth0", 0.105),
+            ("eth1", 0.138),
+        ]
+        for p_name, lx in pc_ports:
+            port = device.get_port(p_name)
+            eth_x = cx + lx
+            eth_y = cy - 0.015
+            eth_z = face_z + 0.002
 
-        # Metal Port Shield Collar
-        draw_box(eth_x, eth_y, eth_z, 0.022, 0.016, 0.006, GraphicsConfig.COLOR_PORT_METAL)
+            # Metal Port Shield Collar
+            draw_box(eth_x, eth_y, eth_z, 0.020, 0.014, 0.006, GraphicsConfig.COLOR_PORT_METAL)
 
-        # Socket Cavity
-        draw_box(eth_x, eth_y, eth_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
+            # Socket Cavity
+            draw_box(eth_x, eth_y, eth_z + 0.002, 0.015, 0.009, 0.002, (0.02, 0.03, 0.04))
 
-        # Gold Contact Pins
-        draw_box(eth_x, eth_y + 0.002, eth_z + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
+            # Gold Contact Pins
+            draw_box(eth_x, eth_y + 0.002, eth_z + 0.003, 0.009, 0.002, 0.001, (0.92, 0.75, 0.20))
 
-        # Dual Link & Speed LEDs above eth0
-        is_up = (eth0 and eth0.is_operational)
-        led_eth = GraphicsConfig.COLOR_LED_GREEN if is_up else GraphicsConfig.COLOR_LED_OFF
-        draw_box(eth_x - 0.004, eth_y + 0.012, eth_z, 0.004, 0.003, 0.002, led_eth)
-        draw_box(eth_x + 0.004, eth_y + 0.012, eth_z, 0.004, 0.003, 0.002, led_eth)
+            # Dual Link & Activity Status LEDs above port (Real-time reactive)
+            lnk_c, act_c = self.get_port_led_colors(port)
+            draw_emissive_box(eth_x - 0.004, eth_y + 0.010, eth_z + 0.002, 0.003, 0.002, 0.002, lnk_c)
+            draw_emissive_box(eth_x + 0.004, eth_y + 0.010, eth_z + 0.002, 0.003, 0.002, 0.002, act_c)
 
-        # "eth0 / LOM" White Label Plate
-        draw_box(eth_x, eth_y - 0.012, eth_z, 0.018, 0.003, 0.001, (0.85, 0.88, 0.92))
+            # Port Label Plate under socket
+            draw_box(eth_x, eth_y - 0.010, eth_z + 0.001, 0.014, 0.003, 0.001, (0.80, 0.84, 0.90))
 
         # 2x Front USB 3.0 Diagnostic Ports
         usb_z = face_z + 0.002
-        draw_box(cx + 0.165, eth_y, usb_z, 0.012, 0.007, 0.004, (0.12, 0.40, 0.78))
-        draw_box(cx + 0.182, eth_y, usb_z, 0.012, 0.007, 0.004, (0.12, 0.40, 0.78))
+        draw_box(cx + 0.170, cy - 0.015, usb_z, 0.011, 0.007, 0.004, (0.12, 0.40, 0.78))
+        draw_box(cx + 0.186, cy - 0.015, usb_z, 0.011, 0.007, 0.004, (0.12, 0.40, 0.78))

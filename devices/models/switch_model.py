@@ -43,10 +43,10 @@ class SwitchModel(DeviceModel):
         # 4. Left System Status Panel & Mode Pushbutton
         draw_box(cx - 0.190, cy, face_z + 0.003, 0.008, 0.008, 0.003, (0.35, 0.38, 0.42))  # Mode button
         # 4 Micro Diagnostic LEDs (SYST, STAT, SPEED, DUPLEX)
-        sys_led_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
+        sys_led_col = (0.12, 0.95, 0.30) if device.power_state else GraphicsConfig.COLOR_LED_OFF
         for idx in range(4):
             lx = cx - 0.175 + idx * 0.009
-            draw_box(lx, cy, face_z + 0.002, 0.004, 0.004, 0.002, sys_led_col)
+            draw_emissive_box(lx, cy, face_z + 0.003, 0.0035, 0.0035, 0.002, sys_led_col)
 
         # 5. Dual-Row 24-Port RJ45 Matrix Block
         # Backing metal shield cage
@@ -76,11 +76,14 @@ class SwitchModel(DeviceModel):
             pin_y_off = 0.002 if row == 0 else -0.002
             draw_box(px, py + pin_y_off, port_pz + 0.003, 0.009, 0.002, 0.001, (0.92, 0.75, 0.20))
 
-            # Micro Link / Activity LED Indicator
-            is_active = (port and port.is_operational)
-            led_c = GraphicsConfig.COLOR_LED_GREEN if is_active else GraphicsConfig.COLOR_LED_OFF
-            led_y = py - 0.006 if row == 0 else py + 0.006
-            draw_box(px, led_y, port_pz, 0.003, 0.002, 0.001, led_c)
+            # Real-time Dual Port Status LEDs (Link on Left, Activity on Right)
+            lnk_c, act_c = self.get_port_led_colors(port)
+            led_y = py - 0.0075 if row == 0 else py + 0.0075
+            led_z = port_pz + 0.002
+            # Left: Link status (Green=Up, Amber=Connected but Down, Off=Unplugged)
+            draw_emissive_box(px - 0.0035, led_y, led_z, 0.0026, 0.0018, 0.0015, lnk_c)
+            # Right: Activity status (Blinking/Glowing Green when operational, Off when inactive)
+            draw_emissive_box(px + 0.0035, led_y, led_z, 0.0026, 0.0018, 0.0015, act_c)
 
         # 6. SFP+ 10G Dual Uplink Cages on Far Right
         sfp_z = face_z + 0.002
@@ -91,4 +94,6 @@ class SwitchModel(DeviceModel):
             # SFP optical cavity / dust cap
             draw_box(sfp_x, cy, sfp_z + 0.002, 0.013, 0.011, 0.003, (0.08, 0.10, 0.14))
             # SFP activity LED
-            draw_box(sfp_x, cy + 0.010, sfp_z, 0.003, 0.003, 0.001, (0.2, 0.8, 0.3) if device.power_state else GraphicsConfig.COLOR_LED_OFF)
+            sfp_port = device.get_port(f"Te0/{sfp_idx + 1}") if hasattr(device, "get_port") else None
+            sfp_lnk, _ = self.get_port_led_colors(sfp_port)
+            draw_emissive_box(sfp_x, cy + 0.010, sfp_z + 0.002, 0.003, 0.0025, 0.0015, sfp_lnk if (sfp_port and sfp_port.connected_port) else ((0.15, 0.90, 0.30) if device.power_state else GraphicsConfig.COLOR_LED_OFF))
