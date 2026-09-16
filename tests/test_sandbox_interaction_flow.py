@@ -40,16 +40,16 @@ def test_sandbox_cabling_and_cli_flow():
     assert scene.interaction_mode == "CABLING_CLI"
     assert scene.active_modal is None
 
-    # 1. Point camera towards Rack A (where R1 is installed at U1)
+    # 1. Point camera towards Rack A (where R1 is installed at U28)
     # Rack A is at (0, 0, -3.0)
     scene.player.controller.x = 0.0
-    scene.player.controller.y = 0.4
+    scene.player.controller.y = 0.0
     scene.player.controller.z = -1.8
     scene.player.camera.x = 0.0
-    scene.player.camera.y = 0.4 + 1.7
+    scene.player.camera.y = 1.7
     scene.player.camera.z = -1.8
     scene.player.camera.yaw = -90.0  # Face towards -Z
-    scene.player.camera.pitch = -30.0
+    scene.player.camera.pitch = -16.0
 
     # Run one update frame
     input_mgr = scene.services.get("input_manager")
@@ -94,7 +94,7 @@ def test_sandbox_cabling_and_cli_flow():
     assert scene.interaction_mode == "CABLING_CLI"
 
     # 6. Test Cabling Flow with F key
-    r1 = scene.world.racks["Rack A"].get_device_at_u(1)
+    r1 = scene.world.racks["Rack A"].get_device_at_u(28)
     assert r1 is not None
     port_g1 = r1.get_port("Gi0/1")  # currently empty port
 
@@ -122,7 +122,7 @@ def test_overview_hud_rendering():
     ui = MagicMock()
 
     # 1. Test render when targeting a device
-    r1 = scene.world.racks["Rack A"].get_device_at_u(1)
+    r1 = scene.world.racks["Rack A"].get_device_at_u(28)
     target = InteractionTarget(
         target_type="DEVICE",
         rack=scene.world.racks["Rack A"],

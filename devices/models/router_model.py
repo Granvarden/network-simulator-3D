@@ -70,48 +70,45 @@ class RouterModel(DeviceModel):
         draw_box(cx - 0.050, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, sys_col)
         draw_box(cx - 0.034, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, act_col)
 
-        # 6. Right Equipment Module Plate (RJ45 Port Cluster)
+        # 6. Right Equipment Module Plate (4x Gigabit Ethernet + 1x Console)
         port_base_z = face_z + 0.002
-        draw_box(cx + 0.10, cy - 0.015, port_base_z, 0.170, 0.032, 0.003, (0.20, 0.23, 0.28))
+        draw_box(cx + 0.095, cy - 0.015, port_base_z, 0.190, 0.034, 0.003, (0.20, 0.23, 0.28))
 
-        # Port Gi0/0 (Local Pos: 0.04, -0.015, 0.252)
-        g0 = device.get_port("Gi0/0")
-        p0_x = cx + 0.04
-        p0_y = cy - 0.015
-        p0_z = face_z + 0.002
-        # Metallic shield collar
-        draw_box(p0_x, p0_y, p0_z, 0.022, 0.016, 0.006, GraphicsConfig.COLOR_PORT_METAL)
-        # Socket cavity
-        draw_box(p0_x, p0_y, p0_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
-        # Gold contact pins inside socket
-        draw_box(p0_x, p0_y + 0.002, p0_z + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
-        # Link LED
-        led0_c = GraphicsConfig.COLOR_LED_GREEN if (g0 and g0.is_operational) else GraphicsConfig.COLOR_LED_OFF
-        draw_box(p0_x, p0_y + 0.012, p0_z, 0.005, 0.003, 0.002, led0_c)
+        # 4 Gigabit Ethernet RJ45 Ports (Gi0/0 - Gi0/3)
+        router_ports = [
+            ("Gi0/0", 0.020),
+            ("Gi0/1", 0.055),
+            ("Gi0/2", 0.090),
+            ("Gi0/3", 0.125),
+        ]
+        for p_name, lx in router_ports:
+            port = device.get_port(p_name)
+            px = cx + lx
+            py = cy - 0.015
+            pz = face_z + 0.002
 
-        # Port Gi0/1 (Local Pos: 0.09, -0.015, 0.252)
-        g1 = device.get_port("Gi0/1")
-        p1_x = cx + 0.09
-        p1_y = cy - 0.015
-        p1_z = face_z + 0.002
-        draw_box(p1_x, p1_y, p1_z, 0.022, 0.016, 0.006, GraphicsConfig.COLOR_PORT_METAL)
-        draw_box(p1_x, p1_y, p1_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
-        draw_box(p1_x, p1_y + 0.002, p1_z + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
-        led1_c = GraphicsConfig.COLOR_LED_GREEN if (g1 and g1.is_operational) else GraphicsConfig.COLOR_LED_OFF
-        draw_box(p1_x, p1_y + 0.012, p1_z, 0.005, 0.003, 0.002, led1_c)
+            # Metal shield collar
+            draw_box(px, py, pz, 0.022, 0.016, 0.006, GraphicsConfig.COLOR_PORT_METAL)
+            # Socket cavity
+            draw_box(px, py, pz + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
+            # Gold contact pins inside socket
+            draw_box(px, py + 0.002, pz + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
+            # Link LED
+            led_c = GraphicsConfig.COLOR_LED_GREEN if (port and port.is_operational) else GraphicsConfig.COLOR_LED_OFF
+            draw_box(px, py + 0.012, pz, 0.004, 0.003, 0.002, led_c)
 
-        # Console Port (Local Pos: 0.15, -0.015, 0.252)
-        pcon_x = cx + 0.15
+        # Console Port (Local Pos: 0.165, -0.015, 0.252)
+        pcon_x = cx + 0.165
         pcon_y = cy - 0.015
         pcon_z = face_z + 0.002
         # Cisco Sky Blue RJ45 Collar
         draw_box(pcon_x, pcon_y, pcon_z, 0.022, 0.016, 0.006, (0.15, 0.55, 0.85))
         draw_box(pcon_x, pcon_y, pcon_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
         # "CONSOLE" Blue Label Tab above port
-        draw_box(pcon_x, pcon_y + 0.012, pcon_z, 0.020, 0.004, 0.002, (0.85, 0.92, 1.0))
+        draw_box(pcon_x, pcon_y + 0.012, pcon_z, 0.018, 0.004, 0.002, (0.85, 0.92, 1.0))
 
         # USB / AUX Diagnostic port
-        draw_box(cx + 0.19, cy - 0.015, p0_z, 0.012, 0.007, 0.004, (0.16, 0.18, 0.22))
+        draw_box(cx + 0.192, cy - 0.015, pcon_z, 0.010, 0.007, 0.004, (0.16, 0.18, 0.22))
 
         # Power Rocker Switch (Far right upper corner)
         pwr_sw_c = (0.85, 0.22, 0.22) if device.power_state else (0.35, 0.12, 0.12)

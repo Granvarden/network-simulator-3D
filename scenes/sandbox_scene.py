@@ -84,19 +84,19 @@ class SandboxScene(Scene):
         """Mount initial sample devices into Rack A for immediate demonstration."""
         rack_a = self.world.racks.get("Rack A")
         if rack_a:
-            # Mount a 2U Router at U1
+            # Mount a 2U Router at U28 (takes U28-U29, comfortable eye level)
             router = DeviceFactory.create_device("Router", "R1")
-            rack_a.install_device(router, 1)
+            rack_a.install_device(router, 28)
             self.network_engine.register_device(router)
 
-            # Mount a 1U Switch at U4
+            # Mount a 1U Switch at U31 (takes U31)
             switch = DeviceFactory.create_device("Switch", "SW1")
-            rack_a.install_device(switch, 4)
+            rack_a.install_device(switch, 31)
             self.network_engine.register_device(switch)
 
-            # Mount a PC Workstation at U6
+            # Mount a PC Workstation / Server at U33 (takes U33-U34)
             pc = DeviceFactory.create_device("PC", "PC1")
-            rack_a.install_device(pc, 6)
+            rack_a.install_device(pc, 33)
             self.network_engine.register_device(pc)
 
             # Auto-patch: Connect R1 Gi0/0 <-> SW1 Gi0/1
