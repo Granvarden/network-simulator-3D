@@ -1,6 +1,6 @@
 """In-Game Heads-Up Display (HUD) overlay."""
 
-from typing import Optional
+from typing import Optional, Tuple
 from config.game_config import GameConfig
 from config.graphics_config import GraphicsConfig
 from rendering.ui_renderer import UIRenderer
@@ -25,7 +25,9 @@ class HUD:
         target: InteractionTarget,
         network_status: str = "ONLINE",
         mode: str = "CABLING_CLI",
-        held_cable_port: Optional[object] = None
+        held_cable_port: Optional[object] = None,
+        held_cable_color_name: Optional[str] = None,
+        held_cable_color_rgb: Optional[Tuple[float, float, float]] = None
     ) -> None:
         # 1. Top Modern Status Bar
         bar_h = 50
@@ -57,14 +59,20 @@ class HUD:
             c_dev = getattr(held_cable_port, "device_ref", None)
             c_dev_name = c_dev.hostname if c_dev else "Device"
             c_port_name = getattr(held_cable_port, "port_name", "Port")
-            cable_banner = f"Connecting Cable from {c_dev_name}:{c_port_name} -> Aim at target port and press [F] | [ESC] Cancel"
-            cb_w = max(420, len(cable_banner) * 9 + 40)
+            col_label = f" [Color: {held_cable_color_name or 'Blue'} | Scroll to change]"
+            cable_banner = f"Cabling from {c_dev_name}:{c_port_name}{col_label} -> [F] Connect | [R-Click] Cancel"
+            cb_w = max(480, len(cable_banner) * 8.5 + 40)
             cb_h = 36
             cb_x = self.screen_w / 2.0 - cb_w / 2.0
             cb_y = bar_h + 12
             ui.draw_rect(cb_x, cb_y, cb_w, cb_h, (15, 23, 42), alpha=0.94, corner_radius=18.0)
-            ui.draw_rect_outline(cb_x, cb_y, cb_w, cb_h, (250, 204, 21), line_width=1.5)
-            ui.draw_text(cable_banner, self.screen_w / 2.0, cb_y + cb_h / 2.0, font_size=14, color=(250, 204, 21), center_x=True, center_y=True)
+            border_col = (
+                (int(held_cable_color_rgb[0] * 255), int(held_cable_color_rgb[1] * 255), int(held_cable_color_rgb[2] * 255))
+                if held_cable_color_rgb else (56, 189, 248)
+            )
+            ui.draw_rect_outline(cb_x, cb_y, cb_w, cb_h, border_col, line_width=2.0)
+            ui.draw_text(cable_banner, self.screen_w / 2.0, cb_y + cb_h / 2.0, font_size=14, color=(241, 245, 249), center_x=True, center_y=True)
+
 
         # 2. Sleek Tactical Corner-Bracket Reticle in Screen Center (Matching User Reference Image)
         cx = round(self.screen_w / 2.0)

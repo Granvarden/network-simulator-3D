@@ -4,7 +4,6 @@ from typing import Any
 from OpenGL.GL import *
 from rendering.primitives import draw_box
 from config.graphics_config import GraphicsConfig
-from devices.port import AdminStatus, LinkStatus
 from .device_model import DeviceModel
 
 
@@ -79,6 +78,8 @@ class PCModel(DeviceModel):
         draw_box(cx + 0.130, cy + 0.020, face_z + 0.003, 0.006, 0.006, 0.002, (0.25, 0.28, 0.32))
 
         # 6. Front Maintenance Ethernet Port (eth0) (Local Pos: 0.12, -0.015, 0.252)
+        import time
+        current_time = time.time()
         eth0 = device.get_port("eth0")
         eth_x = cx + 0.12
         eth_y = cy - 0.015
@@ -93,29 +94,24 @@ class PCModel(DeviceModel):
         # Gold Contact Pins
         draw_box(eth_x, eth_y + 0.002, eth_z + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
 
-        # Dual Port Status LEDs above eth0 (Link + Activity)
-        # 3-State LED logic:
-        #   Green  = Admin UP + Cable plugged + Link UP (fully operational)
-        #   Amber  = Admin UP but no cable or remote end is down
-        #   Off    = Admin DOWN (port shutdown by CLI)
-        if eth0 and eth0.admin_status == AdminStatus.UP:
-            if eth0.link_status == LinkStatus.UP:
-                led_link = GraphicsConfig.COLOR_LED_GREEN    # Operational: bright green
-                led_act  = (0.10, 0.85, 0.30)               # Activity pulse: also green
-            else:
-                led_link = GraphicsConfig.COLOR_LED_AMBER    # Admin up, no link: amber
-                led_act  = GraphicsConfig.COLOR_LED_OFF
+        # Dual Link & Speed/Activity LEDs above eth0
+        if eth0 is not None:
+            link_col, act_col = eth0.get_led_colors(device.power_state, current_time)
         else:
-            led_link = GraphicsConfig.COLOR_LED_OFF          # Port shutdown: dark
-            led_act  = GraphicsConfig.COLOR_LED_OFF
+            link_col, act_col = GraphicsConfig.COLOR_LED_OFF, GraphicsConfig.COLOR_LED_OFF
 
-        # Link Status LED (left, 5x4px)
-        draw_box(eth_x - 0.005, eth_y + 0.013, eth_z, 0.005, 0.004, 0.002, led_link)
-        # Activity LED (right, 4x3px)
-        draw_box(eth_x + 0.003, eth_y + 0.013, eth_z, 0.004, 0.003, 0.002, led_act)
+        # Contrast Bezel Housing
+        draw_box(eth_x, eth_y + 0.012, eth_z + 0.001, 0.014, 0.0045, 0.002, GraphicsConfig.COLOR_LED_BEZEL)
+
+        # Left Micro LED (Link Status: Green = Operational Up, Amber = Cable plugged in but Admin Down/Link Down, Off = Unplugged)
+        draw_box(eth_x - 0.0035, eth_y + 0.012, eth_z + 0.002, 0.004, 0.003, 0.0015, link_col)
+
+        # Right Micro LED (Activity Status: Green heartbeat / traffic flicker, Off = Inactive)
+        draw_box(eth_x + 0.0035, eth_y + 0.012, eth_z + 0.002, 0.004, 0.003, 0.0015, act_col)
 
         # "eth0 / LOM" White Label Plate
         draw_box(eth_x, eth_y - 0.012, eth_z, 0.018, 0.003, 0.001, (0.85, 0.88, 0.92))
+
 
         # 2x Front USB 3.0 Diagnostic Ports
         usb_z = face_z + 0.002

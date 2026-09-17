@@ -1,15 +1,15 @@
 """Central Network Engine simulating Layer 2 switching, Layer 3 routing, ARP, and ICMP Ping."""
 
+from __future__ import annotations
 import random
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
-from devices.device import Device
-from devices.router import Router
-from devices.switch import Switch
-from devices.pc import PC
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 from devices.port import Port, AdminStatus, LinkStatus
 from .subnet import is_valid_ip, is_same_subnet, get_network_address
 from .routing_table import RoutingTable, RouteType
+
+if TYPE_CHECKING:
+    from devices.device import Device
 
 
 @dataclass
@@ -68,7 +68,7 @@ class NetworkEngine:
             if not remote_dev or not remote_dev.power_state:
                 return
 
-            if isinstance(remote_dev, Switch):
+            if getattr(remote_dev, "device_type", None) == "Switch":
                 # Switch learns MAC of incoming traffic
                 if start_port.mac_address:
                     remote_dev.learn_mac(start_port.mac_address, remote.port_name, remote.vlan)
@@ -89,7 +89,7 @@ class NetworkEngine:
         visit(start_port)
         return reachable_ports
 
-    def ping(self, source_device: Device, dest_ip: str, count: int = 4) -> PingResult:
+    def ping(self, source_device: Any, dest_ip: str, count: int = 4) -> PingResult:
         """Simulate ICMP Echo Ping with realistic diagnostics and response output."""
         output: List[str] = []
 
@@ -103,10 +103,11 @@ class NetworkEngine:
         source_port: Optional[Port] = None
         gateway_ip: Optional[str] = None
 
-        if isinstance(source_device, PC):
-            source_port = source_device.eth0
-            gateway_ip = source_device.default_gateway
-        elif isinstance(source_device, Router):
+        dev_type = getattr(source_device, "device_type", None)
+        if dev_type == "PC":
+            source_port = getattr(source_device, "eth0", None)
+            gateway_ip = getattr(source_device, "default_gateway", None)
+        elif dev_type == "Router":
             # Select operational router interface matching dest_ip subnet, or interface with route
             for p in source_device.get_operational_ports():
                 if p.ip_address and p.subnet_mask and is_same_subnet(p.ip_address, dest_ip, p.subnet_mask):
@@ -131,6 +132,7 @@ class NetworkEngine:
 
         # 3. Check Self-Ping
         if source_port.ip_address == dest_ip:
+            source_port.record_activity()
             rtts = [1.0 for _ in range(count)]
             for i in range(count):
                 output.append(f"Reply from {dest_ip}: bytes=32 time<1ms TTL=128")
@@ -150,7 +152,14 @@ class NetworkEngine:
             # Direct L2 delivery
             reachable_ports = self.trace_l2_segment(source_port)
             if target_port in reachable_ports:
-                # Success!
+                # Success! Record activity on ingress and egress ports
+                source_port.record_activity()
+                target_port.record_activity()
+                if source_port.connected_port:
+                    source_port.connected_port.record_activity()
+                if target_port.connected_port:
+                    target_port.connected_port.record_activity()
+
                 rtts = [round(random.uniform(1.0, 3.5), 1) for _ in range(count)]
                 for rtt in rtts:
                     output.append(f"Reply from {dest_ip}: bytes=32 time={rtt}ms TTL=64")
@@ -191,7 +200,7 @@ class NetworkEngine:
             return PingResult(dest_ip, count, 0, 100.0, 0.0, 0.0, 0.0, output, False)
 
         # If gateway is a Router, check if Router can route to target
-        if isinstance(gw_dev, Router):
+        if getattr(gw_dev, "device_type", None) == "Router":
             # Check router's own ports for destination subnet
             has_route = False
             for rp in gw_dev.get_operational_ports():
@@ -200,14 +209,33 @@ class NetworkEngine:
                     # Check L2 reachability from router interface to target
                     if target_port in self.trace_l2_segment(rp):
                         has_route = True
+                        source_port.record_activity()
+                        gw_port.record_activity()
+                        rp.record_activity()
+                        target_port.record_activity()
+                        if source_port.connected_port:
+                            source_port.connected_port.record_activity()
+                        if target_port.connected_port:
+                            target_port.connected_port.record_activity()
                         break
 
-            # Check static routes if not directly connected
-            if not has_route and hasattr(gw_dev, "static_routes"):
-                for s_net, s_mask, s_next in gw_dev.static_routes:
-                    if get_network_address(dest_ip, s_mask) == s_net:
+            # Check routing table / static routes if not directly connected
+            if not has_route:
+                if hasattr(gw_dev, "routing_table"):
+                    route_entry = gw_dev.routing_table.lookup(dest_ip)
+                    if route_entry:
                         has_route = True
-                        break
+                        source_port.record_activity()
+                        gw_port.record_activity()
+                        target_port.record_activity()
+                elif hasattr(gw_dev, "static_routes"):
+                    for s_net, s_mask, s_next in gw_dev.static_routes:
+                        if get_network_address(dest_ip, s_mask) == s_net:
+                            has_route = True
+                            source_port.record_activity()
+                            gw_port.record_activity()
+                            target_port.record_activity()
+                            break
 
             if has_route:
                 rtts = [round(random.uniform(2.0, 5.0), 1) for _ in range(count)]
@@ -224,6 +252,7 @@ class NetworkEngine:
                     output_lines=output,
                     success=True
                 )
+
 
         for _ in range(count):
             output.append("Destination host unreachable.")

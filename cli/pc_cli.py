@@ -1,140 +1,47 @@
-"""PC Command Prompt CLI Processor."""
+"""PC Command Prompt CLI Processor.
+
+Architected with CommandRegistry dispatch and PCCommands.
+"""
 
 from typing import List, Optional
 from devices.pc import PC
 from network.network_engine import NetworkEngine
-from network.subnet import is_valid_ip, is_valid_netmask
-from .cli_parser import parse_command_tokens
+from .prompts.mode import CLIMode
+from .cli_context import CLIContext
+from .command_registry import CommandRegistry
+from .cli_parser import CLIParser
+from .commands.common import CommonCommands
+from .commands.pc_commands import PCCommands
 
 
 class PCCLI:
-    """Simulates Windows / Linux terminal on PC workstations."""
+    """Simulates Windows Command Prompt terminal on PC workstations."""
 
     def __init__(self, pc: PC, network_engine: Optional[NetworkEngine] = None):
         self.pc: PC = pc
+        self.device: PC = pc
         self.network_engine: Optional[NetworkEngine] = network_engine
+        if network_engine is not None:
+            self.pc.network_engine = network_engine
 
-    def get_prompt(self) -> str:
-        return f"C:\\Users\\Engineer>"
+        self.context: CLIContext = CLIContext(pc.hostname, CLIMode.PC_PROMPT)
+        self.context.network_engine = network_engine
+
+        # Command registry for PC commands
+        self.registry: CommandRegistry = CommandRegistry()
+        self._register_commands()
+
+        self.parser: CLIParser = CLIParser(self.registry)
+
+    def _register_commands(self) -> None:
+        CommonCommands.register_commands(self.registry)
+        PCCommands.register_commands(self.registry)
 
     def execute(self, cmd_line: str) -> List[str]:
-        tokens = parse_command_tokens(cmd_line)
-        if not tokens:
-            return []
+        """Execute a line of command input and return formatted output lines."""
+        result = self.parser.execute(cmd_line, self.pc, self.context)
+        return result.output
 
-        cmd = tokens[0].lower()
-
-        if cmd == "ipconfig":
-            return self._handle_ipconfig(tokens[1:])
-        elif cmd == "ping":
-            return self._handle_ping(tokens[1:])
-        elif cmd == "arp":
-            return self._handle_arp(tokens[1:])
-        elif cmd in ("disable", "shutdown"):
-            p_name = tokens[1].lower() if len(tokens) > 1 else "eth0"
-            port = self.pc.get_port(p_name)
-            if port:
-                from devices.port import AdminStatus
-                port.set_admin_status(AdminStatus.DOWN)
-                if self.network_engine:
-                    self.network_engine.update_links()
-                return [f"Network adapter '{port.port_name}' has been disabled (Admin Down)."]
-            return [f"Error: Interface '{p_name}' not found."]
-        elif cmd in ("enable", "no"):
-            p_name = "eth0"
-            if cmd == "enable" and len(tokens) > 1:
-                p_name = tokens[1].lower()
-            elif cmd == "no" and len(tokens) > 1 and tokens[1].lower() in ("shutdown", "shut"):
-                p_name = tokens[2].lower() if len(tokens) > 2 else "eth0"
-            port = self.pc.get_port(p_name)
-            if port:
-                from devices.port import AdminStatus
-                port.set_admin_status(AdminStatus.UP)
-                if self.network_engine:
-                    self.network_engine.update_links()
-                return [f"Network adapter '{port.port_name}' has been enabled (Admin Up)."]
-            return [f"Error: Interface '{p_name}' not found."]
-        elif cmd == "help":
-            return [
-                "Available PC Commands:",
-                "  ipconfig                         Display basic network configuration",
-                "  ipconfig /all                    Display full network details (MAC, Gateway)",
-                "  ipconfig /set <ip> <mask> [gw]   Configure IP, subnet mask, and default gateway",
-                "  disable [adapter]                Disable network adapter (eth0 / eth1)",
-                "  enable [adapter]                 Enable network adapter (eth0 / eth1)",
-                "  ping <destination_ip>            Send ICMP echo requests to target",
-                "  arp -a                           Display ARP cache table",
-                "  exit                             Close command prompt"
-            ]
-        elif cmd in ("exit", "quit"):
-            return ["% Exiting PC Command Prompt"]
-
-        return [f"'{tokens[0]}' is not recognized as an internal or external command, operable program or batch file."]
-
-    def _handle_ipconfig(self, args: List[str]) -> List[str]:
-        if args and args[0].lower() == "/set":
-            # ipconfig /set <ip> <mask> [gw]
-            if len(args) < 3:
-                return ["Usage: ipconfig /set <ip_address> <subnet_mask> [default_gateway]"]
-            ip = args[1]
-            mask = args[2]
-            gw = args[3] if len(args) > 3 else None
-
-            if not is_valid_ip(ip):
-                return [f"Error: Invalid IP address '{ip}'"]
-            if not is_valid_netmask(mask):
-                return [f"Error: Invalid subnet mask '{mask}'"]
-            if gw and not is_valid_ip(gw):
-                return [f"Error: Invalid default gateway '{gw}'"]
-
-            self.pc.set_ip_config(ip, mask, gw)
-            return [
-                "IP Configuration updated successfully:",
-                f"   IPv4 Address. . . . . . . . . . . : {ip}",
-                f"   Subnet Mask . . . . . . . . . . . : {mask}",
-                f"   Default Gateway . . . . . . . . . : {gw or 'None'}"
-            ]
-
-        is_all = any(a.lower() in ("/all", "-a") for a in args)
-        p = self.pc.eth0
-        lines = [
-            "Windows IP Configuration",
-            "",
-            "Ethernet adapter Ethernet0:",
-            f"   Connection-specific DNS Suffix  . : localdomain",
-            f"   Link-local IPv6 Address . . . . . : fe80::9c2a:4e51:2b1f%12"
-        ]
-        if is_all:
-            lines.append(f"   Physical Address. . . . . . . . . : {p.mac_address}")
-            lines.append(f"   DHCP Enabled. . . . . . . . . . . : No")
-            lines.append(f"   Autoconfiguration Enabled . . . . : Yes")
-
-        ip_str = p.ip_address or "0.0.0.0 (Unconfigured)"
-        mask_str = p.subnet_mask or "0.0.0.0"
-        gw_str = self.pc.default_gateway or "0.0.0.0"
-
-        lines.append(f"   IPv4 Address. . . . . . . . . . . : {ip_str}")
-        lines.append(f"   Subnet Mask . . . . . . . . . . . : {mask_str}")
-        lines.append(f"   Default Gateway . . . . . . . . . : {gw_str}")
-        return lines
-
-    def _handle_ping(self, args: List[str]) -> List[str]:
-        if not args:
-            return ["Usage: ping [-t] [-n count] target_name"]
-        dest = args[0]
-        if not self.network_engine:
-            return ["Network engine is offline."]
-        res = self.network_engine.ping(self.pc, dest, count=4)
-        return res.output_lines
-
-    def _handle_arp(self, args: List[str]) -> List[str]:
-        lines = [
-            f"Interface: {self.pc.eth0.ip_address or '0.0.0.0'} --- 0xb",
-            f"{'Internet Address':<18} {'Physical Address':<18} {'Type':<10}",
-            "-" * 46
-        ]
-        if self.pc.default_gateway:
-            lines.append(f"{self.pc.default_gateway:<18} {'00-11-22-33-44-55':<18} {'dynamic':<10}")
-        lines.append(f"{'224.0.0.22':<18} {'01-00-5e-00-00-16':<18} {'static':<10}")
-        lines.append(f"{'255.255.255.255':<18} {'ff-ff-ff-ff-ff-ff':<18} {'static':<10}")
-        return lines
+    def get_prompt(self) -> str:
+        """Return prompt for PC terminal."""
+        return "C:\\Users\\Engineer>"

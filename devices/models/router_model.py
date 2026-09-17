@@ -1,11 +1,9 @@
 """High-detail 3D visual model for a 2U Enterprise Cisco-style Modular Router."""
 
-import math
 from typing import Any
 from OpenGL.GL import *
 from rendering.primitives import draw_box
 from config.graphics_config import GraphicsConfig
-from devices.port import AdminStatus, LinkStatus
 from .device_model import DeviceModel
 
 
@@ -76,6 +74,9 @@ class RouterModel(DeviceModel):
         port_base_z = face_z + 0.002
         draw_box(cx + 0.095, cy - 0.015, port_base_z, 0.190, 0.034, 0.003, (0.20, 0.23, 0.28))
 
+        import time
+        current_time = time.time()
+
         # 4 Gigabit Ethernet RJ45 Ports (Gi0/0 - Gi0/3)
         router_ports = [
             ("Gi0/0", 0.020),
@@ -96,39 +97,50 @@ class RouterModel(DeviceModel):
             # Gold contact pins inside socket
             draw_box(px, py + 0.002, pz + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
 
-            # 3-State Port Status LED:
-            #   Green  = Admin UP + Cable connected + Link UP (fully operational)
-            #   Amber  = Admin UP but no link (cable disconnected or remote end down)
-            #   Off    = Admin DOWN (port shutdown by CLI)
-            if port and port.admin_status == AdminStatus.UP:
-                if port.link_status == LinkStatus.UP:
-                    led_c = GraphicsConfig.COLOR_LED_GREEN   # Bright green: OPERATIONAL
-                else:
-                    led_c = GraphicsConfig.COLOR_LED_AMBER   # Amber: Admin up, waiting for link
+            # Dual Micro Status LEDs (Left: Link, Right: Activity)
+            if port is not None:
+                link_col, act_col = port.get_led_colors(device.power_state, current_time)
             else:
-                led_c = GraphicsConfig.COLOR_LED_OFF         # Off: Port shutdown
+                link_col, act_col = GraphicsConfig.COLOR_LED_OFF, GraphicsConfig.COLOR_LED_OFF
 
-            # Link Status LED (larger, 5x4px for better visibility)
-            draw_box(px - 0.002, py + 0.012, pz, 0.005, 0.004, 0.002, led_c)
-            # Speed/Activity LED (right side, slightly smaller)
-            if port and port.link_status == LinkStatus.UP:
-                act_c = (0.10, 0.85, 0.30)  # Bright green pulse indicates active link
-            else:
-                act_c = GraphicsConfig.COLOR_LED_OFF
-            draw_box(px + 0.005, py + 0.012, pz, 0.004, 0.003, 0.002, act_c)
+            # Contrast Bezel Housing above port
+            draw_box(px, py + 0.012, pz + 0.001, 0.014, 0.0045, 0.002, GraphicsConfig.COLOR_LED_BEZEL)
+
+            # Left Micro LED (Link Status: Green = Operational Up, Amber = Cable plugged in but Admin Down/Link Down, Off = Unplugged)
+            draw_box(px - 0.0035, py + 0.012, pz + 0.002, 0.004, 0.003, 0.0015, link_col)
+
+            # Right Micro LED (Activity Status: Green heartbeat / traffic flicker, Off = Inactive)
+            draw_box(px + 0.0035, py + 0.012, pz + 0.002, 0.004, 0.003, 0.0015, act_col)
+
+            # Port Name Silk Screen Label Plate below port
+            draw_box(px, py - 0.011, pz + 0.001, 0.018, 0.003, 0.001, (0.16, 0.18, 0.22))
 
         # Console Port (Local Pos: 0.165, -0.015, 0.252)
+        con_port = device.get_port("Console")
         pcon_x = cx + 0.165
         pcon_y = cy - 0.015
         pcon_z = face_z + 0.002
+
         # Cisco Sky Blue RJ45 Collar
         draw_box(pcon_x, pcon_y, pcon_z, 0.022, 0.016, 0.006, (0.15, 0.55, 0.85))
         draw_box(pcon_x, pcon_y, pcon_z + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
+
+        # Console Status LED
+        if con_port is not None:
+            con_link, _ = con_port.get_led_colors(device.power_state, current_time)
+        else:
+            con_link = GraphicsConfig.COLOR_LED_OFF
+
+        # Housing bezel and LED for Console
+        draw_box(pcon_x, pcon_y + 0.011, pcon_z + 0.001, 0.010, 0.004, 0.002, GraphicsConfig.COLOR_LED_BEZEL)
+        draw_box(pcon_x, pcon_y + 0.011, pcon_z + 0.002, 0.006, 0.0025, 0.0015, con_link)
+
         # "CONSOLE" Blue Label Tab above port
-        draw_box(pcon_x, pcon_y + 0.012, pcon_z, 0.018, 0.004, 0.002, (0.85, 0.92, 1.0))
+        draw_box(pcon_x, pcon_y + 0.015, pcon_z + 0.001, 0.018, 0.003, 0.001, (0.85, 0.92, 1.0))
 
         # USB / AUX Diagnostic port
         draw_box(cx + 0.192, cy - 0.015, pcon_z, 0.010, 0.007, 0.004, (0.16, 0.18, 0.22))
+
 
         # Power Rocker Switch (Far right upper corner)
         pwr_sw_c = (0.85, 0.22, 0.22) if device.power_state else (0.35, 0.12, 0.12)

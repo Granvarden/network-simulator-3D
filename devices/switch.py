@@ -3,6 +3,8 @@
 from typing import Any, Dict, List, Optional, Tuple
 from .device import Device
 from .port import Port, PortType, AdminStatus
+from .mac_generator import MacAddressGenerator
+from .vlan_database import VLANDatabase, VLAN
 
 
 class Switch(Device):
@@ -13,8 +15,8 @@ class Switch(Device):
 
         # MAC Address Table: Dict of MAC -> {"port": port_name, "vlan": vlan_id}
         self.mac_table: Dict[str, Dict[str, Any]] = {}
-        # VLANs database
-        self.vlans: Dict[int, str] = {1: "default"}
+        # Single Source of Truth for VLANs
+        self.vlan_database: VLANDatabase = VLANDatabase()
 
         self._init_ports()
 
@@ -28,7 +30,7 @@ class Switch(Device):
                 port_type=PortType.GIGABIT_ETHERNET,
                 speed=1000,
                 vlan=1,
-                mac_address=f"00:22:33:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:00:{i:02x}"
+                mac_address=MacAddressGenerator.generate(self.device_id, i)
             )
             # Switches default to Admin UP (standard Cisco default for switchports)
             port.admin_status = AdminStatus.UP
@@ -40,6 +42,16 @@ class Switch(Device):
             port.local_slot_pos = (x_offset, y_offset, 0.252)
 
             self.add_port(port)
+
+    @property
+    def vlans(self) -> Dict[int, str]:
+        """Backwards compatibility view for VLANs dictionary."""
+        return {v.vlan_id: v.name for v in self.vlan_database.list_vlans()}
+
+    @vlans.setter
+    def vlans(self, v_dict: Dict[int, str]) -> None:
+        for vid, name in v_dict.items():
+            self.vlan_database.add_vlan(int(vid), name)
 
     def learn_mac(self, mac: str, port_name: str, vlan: int = 1) -> None:
         """Learn or update a MAC address entry on a specific port."""
@@ -66,4 +78,5 @@ class Switch(Device):
         data = super().serialize()
         data["mac_table"] = self.mac_table
         data["vlans"] = self.vlans
+        data["vlan_database"] = self.vlan_database.serialize()
         return data

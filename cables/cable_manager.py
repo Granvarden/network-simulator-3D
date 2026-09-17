@@ -27,7 +27,8 @@ class CableManager:
         self,
         port_a: Port,
         port_b: Port,
-        cable_type: CableType = CableType.CAT6_ETHERNET
+        cable_type: CableType = CableType.CAT6_ETHERNET,
+        color: Optional[Tuple[float, float, float]] = None
     ) -> Tuple[bool, Optional[Cable], str]:
         """Connect two ports with a new cable."""
         if port_a == port_b:
@@ -42,7 +43,8 @@ class CableManager:
         # Assign cable ID and color
         cable_id = f"cable_{self._counter}"
         self._counter += 1
-        color = self._color_palette[(self._counter - 1) % len(self._color_palette)]
+        if color is None:
+            color = self._color_palette[(self._counter - 1) % len(self._color_palette)]
 
         cable = Cable(cable_id=cable_id, cable_type=cable_type, color=color)
         success = cable.connect(port_a, port_b)
@@ -50,6 +52,7 @@ class CableManager:
             return False, None, "Failed to connect cable endpoints"
 
         self._cables[cable_id] = cable
+
 
         if self._event_bus:
             self._event_bus.publish(

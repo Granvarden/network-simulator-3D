@@ -5,6 +5,50 @@ from typing import Any, Dict, List, Optional, Tuple
 from .port import Port, AdminStatus, LinkStatus
 
 
+class PortDict(dict):
+    """Dictionary for device ports that supports lookup by canonical name, short name, or alias."""
+
+    def __getitem__(self, key: str) -> Port:
+        if super().__contains__(key):
+            return super().__getitem__(key)
+        from .interface_normalizer import InterfaceNormalizer
+        norm = InterfaceNormalizer.normalize(key)
+        if super().__contains__(norm):
+            return super().__getitem__(norm)
+        short = InterfaceNormalizer.to_short(key)
+        if super().__contains__(short):
+            return super().__getitem__(short)
+        # Case-insensitive fallback
+        k_lower = key.lower()
+        norm_lower = norm.lower()
+        short_lower = short.lower()
+        for k, p in super().items():
+            if k.lower() in (k_lower, norm_lower, short_lower):
+                return p
+            if getattr(p, "canonical_name", "").lower() in (k_lower, norm_lower, short_lower):
+                return p
+            if getattr(p, "short_name", "").lower() in (k_lower, norm_lower, short_lower):
+                return p
+        raise KeyError(key)
+
+    def __contains__(self, key: object) -> bool:
+        if not isinstance(key, str):
+            return False
+        if super().__contains__(key):
+            return True
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+
 class Device(ABC):
     """Abstract base class for network devices (Routers, Switches, PCs)."""
 
@@ -27,7 +71,7 @@ class Device(ABC):
 
         # Operational status
         self.power_state: bool = True
-        self.ports: Dict[str, Port] = {}
+        self.ports: Dict[str, Port] = PortDict()
 
         # CLI Engine reference
         self.cli: Optional[Any] = None
@@ -47,23 +91,10 @@ class Device(ABC):
         self.ports[port.port_name] = port
 
     def get_port(self, name: str) -> Optional[Port]:
-        """Look up port by name or shorthand abbreviation (e.g. g0/0, Gi0/0)."""
-        # Direct match
-        if name in self.ports:
-            return self.ports[name]
-
-        # Case-insensitive / abbreviated lookup
-        name_lower = name.lower()
-        for p_name, port in self.ports.items():
-            pl = p_name.lower()
-            if pl == name_lower:
-                return port
-            # Handle shorthand like gi0/0 -> GigabitEthernet0/0 or Gi0/0
-            if pl.replace("gigabitethernet", "gi") == name_lower.replace("gigabitethernet", "gi"):
-                return port
-            if pl.replace("fastethernet", "fa") == name_lower.replace("fastethernet", "fa"):
-                return port
-        return None
+        """Look up port by name, canonical name, or shorthand abbreviation (e.g. g0/0, Gi0/0, GigabitEthernet0/0)."""
+        if not name:
+            return None
+        return self.ports.get(name, None)
 
     def get_operational_ports(self) -> List[Port]:
         """Return list of ports that are Admin UP and Link UP."""
@@ -108,6 +139,8 @@ class Device(ABC):
                     "vlan": p.vlan,
                     "mac_address": p.mac_address,
                     "description": p.description,
+                    "switchport_mode": getattr(p, "switchport_mode", "access"),
+                    "canonical_name": getattr(p, "canonical_name", p.port_name),
                 }
                 for p in self.ports.values()
             },

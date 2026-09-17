@@ -3,6 +3,7 @@
 from typing import Any, Dict, Optional, Tuple
 from .device import Device
 from .port import Port, PortType, AdminStatus
+from .mac_generator import MacAddressGenerator
 
 
 class PC(Device):
@@ -17,36 +18,21 @@ class PC(Device):
         self._init_ports()
 
     def _init_ports(self) -> None:
-        """Create dual Gigabit Ethernet interfaces (eth0 and eth1)."""
+        """Create eth0 interface."""
         eth0 = Port(
             port_id=f"{self.device_id}_eth0",
             port_name="eth0",
-            port_type=PortType.GIGABIT_ETHERNET,
+            port_type=PortType.FAST_ETHERNET,
             speed=1000,
-            mac_address=f"00:50:56:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:AA:10"
+            mac_address=MacAddressGenerator.generate(self.device_id, 0)
         )
         eth0.admin_status = AdminStatus.UP
-        eth0.local_slot_pos = (0.105, -0.015, 0.252)
+        eth0.local_slot_pos = (0.12, -0.015, 0.252)
         self.add_port(eth0)
-
-        eth1 = Port(
-            port_id=f"{self.device_id}_eth1",
-            port_name="eth1",
-            port_type=PortType.GIGABIT_ETHERNET,
-            speed=1000,
-            mac_address=f"00:50:56:{self.device_id[-2:] if len(self.device_id)>=2 else '01'}:AA:20"
-        )
-        eth1.admin_status = AdminStatus.UP
-        eth1.local_slot_pos = (0.138, -0.015, 0.252)
-        self.add_port(eth1)
 
     @property
     def eth0(self) -> Port:
         return self.ports["eth0"]
-
-    @property
-    def eth1(self) -> Port:
-        return self.ports["eth1"]
 
     def set_ip_config(self, ip: str, mask: str, gateway: Optional[str] = None) -> None:
         """Configure IP address, subnet mask, and default gateway."""

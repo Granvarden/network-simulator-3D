@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from .subnet import ip_to_int, is_valid_ip, netmask_to_cidr, get_network_address
 
 
@@ -61,6 +61,76 @@ class RoutingTable:
                 return True
         return False
 
+    def add_connected_route(self, network: str, netmask: str, interface: str) -> None:
+        """Add a directly connected route (C)."""
+        net = get_network_address(network, netmask)
+        self.remove_connected_route(interface)
+        self.add_route(
+            network=net,
+            netmask=netmask,
+            next_hop=None,
+            interface=interface,
+            route_type=RouteType.CONNECTED,
+            metric=0
+        )
+
+    def remove_connected_route(self, interface: str) -> bool:
+        """Remove directly connected route associated with an interface."""
+        removed = False
+        for r in list(self.entries):
+            if r.route_type == RouteType.CONNECTED and r.interface == interface:
+                self.entries.remove(r)
+                removed = True
+        return removed
+
+    def add_static_route(
+        self,
+        network: str,
+        netmask: str,
+        next_hop: Optional[str] = None,
+        interface: Optional[str] = None,
+        metric: int = 1
+    ) -> None:
+        """Add or replace a static route (S or S* for default)."""
+        is_default = (network == "0.0.0.0" and netmask == "0.0.0.0")
+        rtype = RouteType.DEFAULT if is_default else RouteType.STATIC
+        self.remove_static_route(network, netmask, next_hop)
+        entry = RouteEntry(
+            network=network,
+            netmask=netmask,
+            next_hop=next_hop,
+            interface=interface or "",
+            route_type=rtype,
+            metric=metric
+        )
+        self.entries.append(entry)
+
+    def remove_static_route(
+        self,
+        network: str,
+        netmask: str,
+        next_hop: Optional[str] = None
+    ) -> bool:
+        for r in list(self.entries):
+            if r.route_type in (RouteType.STATIC, RouteType.DEFAULT):
+                if r.network == network and r.netmask == netmask:
+                    if next_hop is None or r.next_hop == next_hop or r.interface == next_hop:
+                        self.entries.remove(r)
+                        return True
+        return False
+
+    def get_routes(self, route_type: Optional[RouteType] = None) -> List[RouteEntry]:
+        """Retrieve all routes, optionally filtered by RouteType."""
+        if route_type is None:
+            return list(self.entries)
+        return [r for r in self.entries if r.route_type == route_type]
+
+    def clear_connected_routes(self) -> None:
+        self.entries = [r for r in self.entries if r.route_type != RouteType.CONNECTED]
+
+    def clear_static_routes(self) -> None:
+        self.entries = [r for r in self.entries if r.route_type not in (RouteType.STATIC, RouteType.DEFAULT)]
+
     def lookup(self, dest_ip: str) -> Optional[RouteEntry]:
         """Perform Longest Prefix Match for dest_ip."""
         if not is_valid_ip(dest_ip):
@@ -84,3 +154,32 @@ class RoutingTable:
 
     def clear(self) -> None:
         self.entries.clear()
+
+    def serialize(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "network": r.network,
+                "netmask": r.netmask,
+                "next_hop": r.next_hop,
+                "interface": r.interface,
+                "route_type": r.route_type.value,
+                "metric": r.metric
+            }
+            for r in self.entries
+        ]
+
+    def deserialize(self, data: List[Dict[str, Any]]) -> None:
+        self.entries.clear()
+        for d in data:
+            try:
+                rtype = RouteType(d.get("route_type", "S"))
+            except ValueError:
+                rtype = RouteType.STATIC
+            self.entries.append(RouteEntry(
+                network=d["network"],
+                netmask=d["netmask"],
+                next_hop=d.get("next_hop"),
+                interface=d.get("interface", ""),
+                route_type=rtype,
+                metric=d.get("metric", 1)
+            ))

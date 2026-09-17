@@ -70,6 +70,21 @@ class SandboxScene(Scene):
         self.interaction_mode: str = "CABLING_CLI"
         self.held_cable_port: Optional[Port] = None
 
+        # Cable color palette: Default is Royal Blue as requested
+        self.cable_colors = [
+            ((0.18, 0.48, 0.95), "Royal Blue"),
+            ((0.15, 0.75, 0.95), "Sky Cyan"),
+            ((0.95, 0.75, 0.12), "Amber Yellow"),
+            ((0.15, 0.82, 0.45), "Mint Green"),
+            ((0.92, 0.32, 0.32), "Coral Red"),
+            ((0.72, 0.35, 0.88), "Purple"),
+            ((0.96, 0.52, 0.12), "Orange"),
+            ((0.90, 0.92, 0.95), "White"),
+            ((0.20, 0.22, 0.25), "Black"),
+        ]
+        self.held_cable_color_idx: int = 0  # Default to Royal Blue
+
+
         # Modal and notification states
         self.active_modal: Optional[str] = None  # None, "INTERACTION", "INVENTORY", "CLI"
         self.sens_notification: str = ""
@@ -165,7 +180,29 @@ class SandboxScene(Scene):
         elif self.active_modal == "INVENTORY":
             return self.inventory_ui.handle_event(event)
 
-        # 2. Right Click: Cancel Held Cable
+        # 2. Mouse Wheel Scroll: Cycle Cable Color when holding a cable
+        if self.held_cable_port is not None:
+            scroll_delta = 0
+            if event.type == pygame.MOUSEWHEEL:
+                scroll_delta = event.y
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 4:  # Wheel Up
+                    scroll_delta = 1
+                elif event.button == 5:  # Wheel Down
+                    scroll_delta = -1
+
+            if scroll_delta != 0:
+                if scroll_delta > 0:
+                    self.held_cable_color_idx = (self.held_cable_color_idx + 1) % len(self.cable_colors)
+                else:
+                    self.held_cable_color_idx = (self.held_cable_color_idx - 1) % len(self.cable_colors)
+
+                col_rgb, col_name = self.cable_colors[self.held_cable_color_idx]
+                self.sens_notification = f"Cable Color: {col_name} (Scroll to change)"
+                self.sens_timer = 2.0
+                return True
+
+        # 3. Right Click: Cancel Held Cable
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
             if self.held_cable_port is not None:
                 self.held_cable_port = None
@@ -173,7 +210,8 @@ class SandboxScene(Scene):
                 self.sens_timer = 1.5
                 return True
 
-        # 3. Key Toggles in Free-look Sandbox Mode
+        # 4. Key Toggles in Free-look Sandbox Mode
+
         if event.type == pygame.KEYDOWN:
             # F3: Toggle Debug Overlay
             if event.key == pygame.K_F3:
@@ -269,9 +307,12 @@ class SandboxScene(Scene):
                             else:
                                 # Start cabling from this port
                                 self.held_cable_port = p
+                                self.held_cable_color_idx = 0  # Reset to Blue default
                                 d_name = target.device.hostname if target.device else "Device"
-                                self.sens_notification = f"Cabling: Selected {d_name}:{p.port_name} -> Aim at partner port"
-                                self.sens_timer = 3.0
+                                col_rgb, col_name = self.cable_colors[self.held_cable_color_idx]
+                                self.sens_notification = f"Cabling: Selected {d_name}:{p.port_name} [Color: {col_name} - Scroll to change] -> Aim at partner port"
+                                self.sens_timer = 3.5
+
                             return True
                         elif target.device:
                             self.sens_notification = "Aim crosshair directly at an RJ45 port to plug cable"
@@ -287,16 +328,19 @@ class SandboxScene(Scene):
                                 self.sens_notification = "Cabling cancelled"
                                 self.sens_timer = 1.5
                             else:
-                                ok, cable, msg = self.cable_manager.connect_ports(self.held_cable_port, dest_port)
+                                sel_color = self.cable_colors[self.held_cable_color_idx][0]
+                                ok, cable, msg = self.cable_manager.connect_ports(self.held_cable_port, dest_port, color=sel_color)
                                 if ok:
                                     src_dev = getattr(self.held_cable_port, "device_ref", None)
                                     src_h = src_dev.hostname if src_dev else "Src"
                                     dst_dev = getattr(dest_port, "device_ref", None)
                                     dst_h = dst_dev.hostname if dst_dev else "Dst"
-                                    self.sens_notification = f"Connected {src_h}:{self.held_cable_port.port_name} <-> {dst_h}:{dest_port.port_name}"
+                                    col_name = self.cable_colors[self.held_cable_color_idx][1]
+                                    self.sens_notification = f"Connected [{col_name}] {src_h}:{self.held_cable_port.port_name} <-> {dst_h}:{dest_port.port_name}"
                                     self.sens_timer = 2.8
                                     self.held_cable_port = None
                                     self.network_engine.update_links()
+
                                 else:
                                     self.sens_notification = f"Failed: {msg}"
                                     self.sens_timer = 2.5
@@ -412,25 +456,44 @@ class SandboxScene(Scene):
             if p1:
                 if target.port and target.port_world_pos:
                     p2 = target.port_world_pos
+                    is_target_port = True
+                    aim_dir = None
                 else:
                     cam = self.player.camera
                     fwd = cam.get_forward_vector()
-                    p2 = (cam.x + fwd[0] * 1.5, cam.y + fwd[1] * 1.5, cam.z + fwd[2] * 1.5)
-                draw_line_3d(p1[0], p1[1], p1[2], p2[0], p2[1], p2[2], (0.98, 0.80, 0.08), line_width=3.0)
+                    # Keep held connector in comfortable view without penetrating obstacle surfaces
+                    if 0.3 < target.distance < 2.8:
+                        dist = min(1.2, max(0.40, target.distance - 0.08))
+                    else:
+                        dist = 1.0
+                    p2 = (cam.x + fwd[0] * dist, cam.y + fwd[1] * dist, cam.z + fwd[2] * dist)
+                    is_target_port = False
+                    aim_dir = fwd
+
+                sel_color = self.cable_colors[self.held_cable_color_idx][0]
+                self.cable_renderer.render_held_cable(
+                    p1, p2, color=sel_color, is_targeting_port=is_target_port, aim_direction=aim_dir
+                )
 
         # Pass 2: 2D HUD & UI Overlays
         renderer.begin_2d()
 
         # Top & Bottom In-game HUD
         time_mgr = self.services.get("time_manager")
+        cur_col_rgb, cur_col_name = (
+            self.cable_colors[self.held_cable_color_idx] if self.held_cable_port else (None, None)
+        )
         self.hud.render(
             ui=ui,
             fps=time_mgr.fps,
             target=self.player.current_target,
             network_status="ONLINE",
             mode=self.interaction_mode,
-            held_cable_port=self.held_cable_port
+            held_cable_port=self.held_cable_port,
+            held_cable_color_name=cur_col_name,
+            held_cable_color_rgb=cur_col_rgb
         )
+
 
         # Bottom-Right Real-Time Overview HUD Card
         if self.active_modal is None:

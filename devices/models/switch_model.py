@@ -4,7 +4,6 @@ from typing import Any
 from OpenGL.GL import *
 from rendering.primitives import draw_box
 from config.graphics_config import GraphicsConfig
-from devices.port import AdminStatus, LinkStatus
 from .device_model import DeviceModel
 
 
@@ -59,6 +58,9 @@ class SwitchModel(DeviceModel):
 
         port_pz = face_z + 0.002
 
+        import time
+        current_time = time.time()
+
         for i in range(1, 25):
             port = device.get_port(f"Gi0/{i}")
             col = (i - 1) % 12
@@ -77,26 +79,22 @@ class SwitchModel(DeviceModel):
             pin_y_off = 0.002 if row == 0 else -0.002
             draw_box(px, py + pin_y_off, port_pz + 0.003, 0.009, 0.002, 0.001, (0.92, 0.75, 0.20))
 
-            # 3-State Micro Port Status LED:
-            #   Green  = Admin UP + Link UP (cable plugged in, both ends up)
-            #   Amber  = Admin UP, no link (cable absent or remote port shutdown)
-            #   Off    = Admin DOWN (port disabled via CLI)
-            port = device.get_port(f"Gi0/{i}")
-            if port and port.admin_status == AdminStatus.UP:
-                if port.link_status == LinkStatus.UP:
-                    led_c = GraphicsConfig.COLOR_LED_GREEN   # Operational: bright green
-                else:
-                    led_c = GraphicsConfig.COLOR_LED_AMBER   # Admin up, no cable/link: amber
+            # Dual Micro Status LED Indicators (Left: Link Status, Right: Activity / Speed)
+            if port is not None:
+                link_col, act_col = port.get_led_colors(device.power_state, current_time)
             else:
-                led_c = GraphicsConfig.COLOR_LED_OFF         # Shutdown: dark
+                link_col, act_col = GraphicsConfig.COLOR_LED_OFF, GraphicsConfig.COLOR_LED_OFF
 
-            # Dual micro LEDs above each port (Link + Activity)
-            led_y = py - 0.007 if row == 0 else py + 0.007
-            # Link LED (left)
-            draw_box(px - 0.003, led_y, port_pz, 0.004, 0.003, 0.001, led_c)
-            # Activity LED (right) - green only when link is up
-            act_c = (0.10, 0.90, 0.25) if (port and port.link_status == LinkStatus.UP) else GraphicsConfig.COLOR_LED_OFF
-            draw_box(px + 0.003, led_y, port_pz, 0.004, 0.003, 0.001, act_c)
+            led_y = py - 0.0085 if row == 0 else py + 0.0085
+
+            # Contrast Bezel Housing
+            draw_box(px, led_y, port_pz + 0.0005, 0.012, 0.0035, 0.0015, GraphicsConfig.COLOR_LED_BEZEL)
+
+            # Left Micro LED (Link Status: Green = Operational Up, Amber = Cable plugged in but Admin Down/Link Down, Off = Unplugged)
+            draw_box(px - 0.0032, led_y, port_pz + 0.0015, 0.0035, 0.0022, 0.0015, link_col)
+
+            # Right Micro LED (Activity Status: Green Heartbeat / High-speed flicker during traffic, Off = Inactive)
+            draw_box(px + 0.0032, led_y, port_pz + 0.0015, 0.0035, 0.0022, 0.0015, act_col)
 
         # 6. SFP+ 10G Dual Uplink Cages on Far Right
         sfp_z = face_z + 0.002
@@ -107,4 +105,6 @@ class SwitchModel(DeviceModel):
             # SFP optical cavity / dust cap
             draw_box(sfp_x, cy, sfp_z + 0.002, 0.013, 0.011, 0.003, (0.08, 0.10, 0.14))
             # SFP activity LED
-            draw_box(sfp_x, cy + 0.010, sfp_z, 0.003, 0.003, 0.001, (0.2, 0.8, 0.3) if device.power_state else GraphicsConfig.COLOR_LED_OFF)
+            sfp_c = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
+            draw_box(sfp_x, cy + 0.010, sfp_z, 0.003, 0.003, 0.001, sfp_c)
+
