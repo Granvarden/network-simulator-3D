@@ -8,6 +8,52 @@ from .cli_session import CLISession
 from .completer import CLICompleter
 
 
+def _find_prev_word_pos(text: str, pos: int) -> int:
+    """Find start index of previous word."""
+    if pos <= 0:
+        return 0
+    p = pos - 1
+    while p > 0 and text[p].isspace():
+        p -= 1
+    while p > 0 and not text[p - 1].isspace():
+        p -= 1
+    return p
+
+
+def _find_next_word_pos(text: str, pos: int) -> int:
+    """Find start index of next word."""
+    n = len(text)
+    if pos >= n:
+        return n
+    p = pos
+    while p < n and not text[p].isspace():
+        p += 1
+    while p < n and text[p].isspace():
+        p += 1
+    return p
+
+
+def _get_clipboard_text() -> str:
+    """Safely extract plain text from clipboard."""
+    try:
+        if not pygame.scrap.get_init():
+            pygame.scrap.init()
+        raw = pygame.scrap.get(pygame.SCRAP_TEXT)
+        if not raw:
+            return ""
+        raw = raw.rstrip(b'\x00')
+        for enc in ("utf-8", "utf-16-le", "utf-16", "latin-1"):
+            try:
+                decoded = raw.decode(enc)
+                if "\x00" not in decoded:
+                    return decoded
+            except Exception:
+                pass
+        return raw.decode("utf-8", errors="ignore").replace("\x00", "")
+    except Exception:
+        return ""
+
+
 class CLIEngine:
     """Manages active interactive terminal sessions attached to network devices."""
 
@@ -88,10 +134,25 @@ class CLIEngine:
 
         # 1. Ctrl Key combinations
         if event.mod & pygame.KMOD_CTRL:
+            # Ctrl + V -> Paste clipboard text
+            if event.key == pygame.K_v:
+                clip_text = _get_clipboard_text()
+                if clip_text:
+                    clip_clean = clip_text.replace("\r\n", "\n").replace("\r", "\n").split("\n")[0].replace("\t", "    ")
+                    if clip_clean:
+                        session.input_buffer = (
+                            session.input_buffer[:session.cursor_pos] +
+                            clip_clean +
+                            session.input_buffer[session.cursor_pos:]
+                        )
+                        session.cursor_pos += len(clip_clean)
+                return True
+
             # Ctrl + C -> Cancel command line
-            if event.key == pygame.K_c:
+            elif event.key == pygame.K_c:
                 self.cancel_input()
                 return True
+
             # Ctrl + Z -> Return to privileged EXEC
             elif event.key == pygame.K_z:
                 handler = session.handler
@@ -102,18 +163,49 @@ class CLIEngine:
                 session.input_buffer = ""
                 session.cursor_pos = 0
                 return True
+
             # Ctrl + A -> Beginning of line
             elif event.key == pygame.K_a:
                 session.cursor_pos = 0
                 return True
+
             # Ctrl + E -> End of line
             elif event.key == pygame.K_e:
                 session.cursor_pos = len(session.input_buffer)
                 return True
-            # Ctrl + U -> Erase line
+
+            # Ctrl + U -> Erase line before cursor
             elif event.key == pygame.K_u:
-                session.input_buffer = ""
+                session.input_buffer = session.input_buffer[session.cursor_pos:]
                 session.cursor_pos = 0
+                return True
+
+            # Ctrl + K -> Erase from cursor to end of line
+            elif event.key == pygame.K_k:
+                session.input_buffer = session.input_buffer[:session.cursor_pos]
+                return True
+
+            # Ctrl + W / Ctrl + Backspace -> Erase previous word
+            elif event.key in (pygame.K_w, pygame.K_BACKSPACE):
+                if session.cursor_pos > 0:
+                    prev_pos = _find_prev_word_pos(session.input_buffer, session.cursor_pos)
+                    session.input_buffer = session.input_buffer[:prev_pos] + session.input_buffer[session.cursor_pos:]
+                    session.cursor_pos = prev_pos
+                return True
+
+            # Ctrl + L -> Clear screen
+            elif event.key == pygame.K_l:
+                session.scrollback.clear()
+                return True
+
+            # Ctrl + Left Arrow -> Jump to previous word
+            elif event.key == pygame.K_LEFT:
+                session.cursor_pos = _find_prev_word_pos(session.input_buffer, session.cursor_pos)
+                return True
+
+            # Ctrl + Right Arrow -> Jump to next word
+            elif event.key == pygame.K_RIGHT:
+                session.cursor_pos = _find_next_word_pos(session.input_buffer, session.cursor_pos)
                 return True
 
         # 2. Enter / Return -> Execute command
@@ -173,7 +265,7 @@ class CLIEngine:
             self.tab_autocomplete()
             return True
 
-        # 11. Printable Character Input
+        # 11. Printable Character Input (including ? which is submitted with Enter)
         elif event.unicode and ord(event.unicode) >= 32:
             session.input_buffer = session.input_buffer[:session.cursor_pos] + event.unicode + session.input_buffer[session.cursor_pos:]
             session.cursor_pos += 1
@@ -188,30 +280,35 @@ class CLIEngine:
 
         session = self.active_session
         cmd = session.input_buffer.strip()
+        raw_input = session.input_buffer
         prompt = self.get_prompt()
 
         # Echo prompt and command to scrollback
-        session.scrollback.append(f"{prompt} {session.input_buffer}")
+        session.scrollback.append(f"{prompt} {raw_input}")
 
         if cmd:
             session.history.append(cmd)
-            handler = session.handler
-            if handler:
-                try:
-                    # Check if handler has parser returning CommandResult
-                    if hasattr(handler, "parser") and hasattr(handler, "context"):
-                        result = handler.parser.execute(cmd, session.device, handler.context)
-                        if result.clear_screen:
-                            session.scrollback.clear()
+            # Check if command is a context help query (? or ending with ?)
+            if cmd == "?" or cmd.endswith("?"):
+                self.execute_cisco_help(cmd)
+            else:
+                handler = session.handler
+                if handler:
+                    try:
+                        # Check if handler has parser returning CommandResult
+                        if hasattr(handler, "parser") and hasattr(handler, "context"):
+                            result = handler.parser.execute(cmd, session.device, handler.context)
+                            if result.clear_screen:
+                                session.scrollback.clear()
+                            else:
+                                session.scrollback.extend(result.output)
+                                if result.exit_requested:
+                                    session.scrollback.append("% Disconnected from session")
                         else:
-                            session.scrollback.extend(result.output)
-                            if result.exit_requested:
-                                session.scrollback.append("% Disconnected from session")
-                    else:
-                        output_lines = handler.execute(cmd)
-                        session.scrollback.extend(output_lines)
-                except Exception as e:
-                    session.scrollback.append(f"% CLI Execution error: {e}")
+                            output_lines = handler.execute(cmd)
+                            session.scrollback.extend(output_lines)
+                    except Exception as e:
+                        session.scrollback.append(f"% CLI Execution error: {e}")
 
         # Clear input buffer
         session.input_buffer = ""
@@ -221,14 +318,38 @@ class CLIEngine:
         if len(session.scrollback) > session.max_scrollback:
             session.scrollback = session.scrollback[-session.max_scrollback:]
 
+    def execute_cisco_help(self, query: str) -> None:
+        """Display detailed Cisco IOS context-sensitive help for a submitted query."""
+        if not self.active_session or not self.active_session.handler:
+            return
+
+        session = self.active_session
+        handler = session.handler
+        registry = getattr(handler, "registry", None)
+        context = getattr(handler, "context", None)
+
+        if registry and context:
+            help_lines = registry.get_cisco_help(query, context.mode)
+            session.scrollback.extend(help_lines)
+        else:
+            session.scrollback.append("% Help not available.")
+
     def cancel_input(self) -> None:
-        """Cancel current input line (Ctrl+C)."""
+        """Cancel current input line (Ctrl+C). In config modes, returns to privileged EXEC."""
         if not self.active_session:
             return
+        session = self.active_session
         prompt = self.get_prompt()
-        self.active_session.scrollback.append(f"{prompt} {self.active_session.input_buffer}^C")
-        self.active_session.input_buffer = ""
-        self.active_session.cursor_pos = 0
+        session.scrollback.append(f"{prompt} {session.input_buffer}^C")
+        session.input_buffer = ""
+        session.cursor_pos = 0
+
+        # In Cisco IOS, Ctrl+C in configuration modes exits back to privileged EXEC mode
+        handler = session.handler
+        if handler and hasattr(handler, "context"):
+            from .prompts.mode import CLIMode
+            if handler.context.mode not in (CLIMode.USER_EXEC, CLIMode.PRIVILEGED_EXEC, CLIMode.PC_PROMPT):
+                handler.context.end_mode()
 
     def tab_autocomplete(self) -> None:
         """Autocomplete commands based on active CLI mode and CommandRegistry."""
@@ -244,6 +365,12 @@ class CLIEngine:
         elif len(matches) > 1:
             session.scrollback.append(f"{self.get_prompt()} {session.input_buffer}")
             session.scrollback.append("  " + "  ".join(matches))
+
+    def show_context_help(self) -> None:
+        """Legacy helper for programmatic help queries."""
+        if not self.active_session:
+            return
+        self.execute_cisco_help(self.active_session.input_buffer + "?")
 
     def update(self, dt: float) -> None:
         """Update cursor blink timer."""

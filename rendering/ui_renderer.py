@@ -10,8 +10,9 @@ class UIRenderer:
     """Renders 2D modern cards, rounded buttons, and crisp typography over OpenGL."""
 
     def __init__(self):
-        self._text_cache: Dict[Tuple[str, int, Tuple[int, int, int]], Tuple[int, int, int]] = {}
+        self._text_cache: Dict[Tuple[str, int, Tuple[int, int, int], bool], Tuple[int, int, int]] = {}
         self._fonts: Dict[int, pygame.font.Font] = {}
+        self._mono_fonts: Dict[int, pygame.font.Font] = {}
 
     def get_font(self, size: int) -> pygame.font.Font:
         """Get or create cached pygame font."""
@@ -22,6 +23,28 @@ class UIRenderer:
             except Exception:
                 self._fonts[size] = pygame.font.Font(None, size)
         return self._fonts[size]
+
+    def get_mono_font(self, size: int) -> pygame.font.Font:
+        """Get or create cached monospaced font for terminals and tabular alignments."""
+        if size not in self._mono_fonts:
+            for fname in ("Consolas", "Courier New", "Cascadia Mono", "Lucida Console", "monospace"):
+                try:
+                    f = pygame.font.SysFont(fname, size)
+                    if f:
+                        self._mono_fonts[size] = f
+                        break
+                except Exception:
+                    continue
+            if size not in self._mono_fonts:
+                self._mono_fonts[size] = pygame.font.Font(None, size)
+        return self._mono_fonts[size]
+
+    def measure_text(self, text: str, font_size: int = 18, mono: bool = False) -> Tuple[int, int]:
+        """Measure exact pixel width and height of text without creating textures."""
+        if not text:
+            return 0, 0
+        font = self.get_mono_font(font_size) if mono else self.get_font(font_size)
+        return font.size(text)
 
     def draw_rect(
         self,
@@ -89,17 +112,18 @@ class UIRenderer:
         font_size: int = 18,
         color: Tuple[int, int, int] = (15, 23, 42),
         center_x: bool = False,
-        center_y: bool = False
+        center_y: bool = False,
+        mono: bool = False
     ) -> Tuple[int, int]:
         """Render cached texture text with crisp anti-aliasing."""
         if not text:
             return 0, 0
 
-        cache_key = (text, font_size, color)
+        cache_key = (text, font_size, color, mono)
         if cache_key in self._text_cache:
             tex_id, tw, th = self._text_cache[cache_key]
         else:
-            font = self.get_font(font_size)
+            font = self.get_mono_font(font_size) if mono else self.get_font(font_size)
             surface = font.render(text, True, color)
             tw, th = surface.get_width(), surface.get_height()
             tex_data = pygame.image.tostring(surface, "RGBA", True)
@@ -111,9 +135,12 @@ class UIRenderer:
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, tex_data)
 
             # Cap cache size
-            if len(self._text_cache) > 400:
+            if len(self._text_cache) > 600:
                 old_key, (old_tex, _, _) = next(iter(self._text_cache.items()))
-                glDeleteTextures(1, [old_tex])
+                try:
+                    glDeleteTextures(1, [old_tex])
+                except Exception:
+                    pass
                 del self._text_cache[old_key]
 
             self._text_cache[cache_key] = (tex_id, tw, th)
@@ -121,6 +148,8 @@ class UIRenderer:
         draw_x = round(x - (tw / 2.0 if center_x else 0.0))
         draw_y = round(y - (th / 2.0 if center_y else 0.0))
 
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, tex_id)
         glColor4f(1.0, 1.0, 1.0, 1.0)

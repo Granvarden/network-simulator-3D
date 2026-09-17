@@ -40,39 +40,39 @@ class RouterModel(DeviceModel):
 
         # 3. Front Industrial Faceplate Inset
         face_z = cz + depth / 2.0
-        draw_box(cx, cy, face_z + 0.001, width - 0.008, height - 0.004, 0.003, (0.12, 0.15, 0.19))
+        draw_box(cx, cy, face_z + 0.00075, width - 0.008, height - 0.004, 0.0015, (0.12, 0.15, 0.19))
 
         # Cisco-style Cyan/Teal Brand Stripe across top front edge
-        draw_box(cx, cy + height / 2.0 - 0.005, face_z + 0.002, width - 0.012, 0.006, 0.002, (0.06, 0.52, 0.74))
+        draw_box(cx, cy + height / 2.0 - 0.005, face_z + 0.0018, width - 0.012, 0.006, 0.0006, (0.06, 0.52, 0.74))
 
         # 4. Left Air Intake Ventilation Grille (6 vertical dark slats)
         for s in range(6):
             slat_x = cx - 0.185 + s * 0.016
-            draw_box(slat_x, cy, face_z + 0.002, 0.008, height - 0.024, 0.002, (0.05, 0.07, 0.09))
+            draw_box(slat_x, cy, face_z + 0.0018, 0.008, height - 0.024, 0.0006, (0.05, 0.07, 0.09))
 
         # 5. Center OLED Management Screen & Telemetry
         screen_cx = cx - 0.05
         screen_cy = cy + 0.014
         # Black bezel
-        draw_box(screen_cx, screen_cy, face_z + 0.002, 0.060, 0.028, 0.002, (0.03, 0.04, 0.06))
-        # Screen surface
+        draw_box(screen_cx, screen_cy, face_z + 0.0018, 0.060, 0.028, 0.0014, (0.03, 0.04, 0.06))
+        # Screen surface (cleanly elevated from bezel)
         scr_color = (0.12, 0.68, 0.82) if device.power_state else (0.05, 0.12, 0.16)
-        draw_box(screen_cx, screen_cy, face_z + 0.003, 0.052, 0.020, 0.001, scr_color)
+        draw_box(screen_cx, screen_cy, face_z + 0.0026, 0.052, 0.020, 0.0008, scr_color)
         if device.power_state:
-            # Simulated telemetry graph line on screen
-            draw_box(screen_cx, screen_cy, face_z + 0.004, 0.040, 0.003, 0.001, (0.90, 0.98, 1.0))
+            # Simulated telemetry graph line on screen (cleanly proud of screen surface)
+            draw_box(screen_cx, screen_cy, face_z + 0.0033, 0.040, 0.003, 0.0006, (0.90, 0.98, 1.0))
 
         # Diagnostic Status LED Cluster (PWR, SYS, ACT) below screen
         pwr_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
         sys_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
         act_col = (0.20, 0.92, 0.35) if device.power_state else GraphicsConfig.COLOR_LED_OFF
-        draw_box(cx - 0.066, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, pwr_col)
-        draw_box(cx - 0.050, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, sys_col)
-        draw_box(cx - 0.034, cy - 0.015, face_z + 0.002, 0.005, 0.005, 0.002, act_col)
+        draw_box(cx - 0.066, cy - 0.015, face_z + 0.0020, 0.005, 0.005, 0.0012, pwr_col)
+        draw_box(cx - 0.050, cy - 0.015, face_z + 0.0020, 0.005, 0.005, 0.0012, sys_col)
+        draw_box(cx - 0.034, cy - 0.015, face_z + 0.0020, 0.005, 0.005, 0.0012, act_col)
 
         # 6. Right Equipment Module Plate (4x Gigabit Ethernet + 1x Console)
-        port_base_z = face_z + 0.002
-        draw_box(cx + 0.095, cy - 0.015, port_base_z, 0.190, 0.034, 0.003, (0.20, 0.23, 0.28))
+        # Sits cleanly stepped proud of faceplate
+        draw_box(cx + 0.095, cy - 0.015, face_z + 0.0018, 0.190, 0.034, 0.0016, (0.20, 0.23, 0.28))
 
         import time
         current_time = time.time()
@@ -90,12 +90,12 @@ class RouterModel(DeviceModel):
             py = cy - 0.015
             pz = face_z + 0.002
 
-            # Metal shield collar
+            # Metal shield collar (local_slot_pos[2] = 0.252)
             draw_box(px, py, pz, 0.022, 0.016, 0.006, GraphicsConfig.COLOR_PORT_METAL)
             # Socket cavity
             draw_box(px, py, pz + 0.002, 0.016, 0.011, 0.003, (0.02, 0.03, 0.04))
             # Gold contact pins inside socket
-            draw_box(px, py + 0.002, pz + 0.003, 0.010, 0.002, 0.001, (0.92, 0.75, 0.20))
+            draw_box(px, py + 0.002, pz + 0.0032, 0.010, 0.002, 0.0008, (0.92, 0.75, 0.20))
 
             # Dual Micro Status LEDs (Left: Link, Right: Activity)
             if port is not None:
@@ -104,16 +104,16 @@ class RouterModel(DeviceModel):
                 link_col, act_col = GraphicsConfig.COLOR_LED_OFF, GraphicsConfig.COLOR_LED_OFF
 
             # Contrast Bezel Housing above port
-            draw_box(px, py + 0.012, pz + 0.001, 0.014, 0.0045, 0.002, GraphicsConfig.COLOR_LED_BEZEL)
+            draw_box(px, py + 0.012, face_z + 0.0033, 0.014, 0.0045, 0.0014, GraphicsConfig.COLOR_LED_BEZEL)
 
-            # Left Micro LED (Link Status: Green = Operational Up, Amber = Cable plugged in but Admin Down/Link Down, Off = Unplugged)
-            draw_box(px - 0.0035, py + 0.012, pz + 0.002, 0.004, 0.003, 0.0015, link_col)
+            # Left Micro LED (Link Status)
+            draw_box(px - 0.0035, py + 0.012, face_z + 0.0042, 0.004, 0.003, 0.0008, link_col)
 
-            # Right Micro LED (Activity Status: Green heartbeat / traffic flicker, Off = Inactive)
-            draw_box(px + 0.0035, py + 0.012, pz + 0.002, 0.004, 0.003, 0.0015, act_col)
+            # Right Micro LED (Activity Status)
+            draw_box(px + 0.0035, py + 0.012, face_z + 0.0042, 0.004, 0.003, 0.0008, act_col)
 
-            # Port Name Silk Screen Label Plate below port
-            draw_box(px, py - 0.011, pz + 0.001, 0.018, 0.003, 0.001, (0.16, 0.18, 0.22))
+            # Port Name Silk Screen Label Plate below port (proud of module plate)
+            draw_box(px, py - 0.011, face_z + 0.0030, 0.018, 0.003, 0.0008, (0.16, 0.18, 0.22))
 
         # Console Port (Local Pos: 0.165, -0.015, 0.252)
         con_port = device.get_port("Console")
@@ -132,16 +132,15 @@ class RouterModel(DeviceModel):
             con_link = GraphicsConfig.COLOR_LED_OFF
 
         # Housing bezel and LED for Console
-        draw_box(pcon_x, pcon_y + 0.011, pcon_z + 0.001, 0.010, 0.004, 0.002, GraphicsConfig.COLOR_LED_BEZEL)
-        draw_box(pcon_x, pcon_y + 0.011, pcon_z + 0.002, 0.006, 0.0025, 0.0015, con_link)
+        draw_box(pcon_x, pcon_y + 0.011, face_z + 0.0033, 0.010, 0.004, 0.0014, GraphicsConfig.COLOR_LED_BEZEL)
+        draw_box(pcon_x, pcon_y + 0.011, face_z + 0.0042, 0.006, 0.0025, 0.0008, con_link)
 
-        # "CONSOLE" Blue Label Tab above port
-        draw_box(pcon_x, pcon_y + 0.015, pcon_z + 0.001, 0.018, 0.003, 0.001, (0.85, 0.92, 1.0))
+        # "CONSOLE" Blue Label Tab above port (proud of module plate)
+        draw_box(pcon_x, pcon_y + 0.015, face_z + 0.0030, 0.018, 0.003, 0.0008, (0.85, 0.92, 1.0))
 
         # USB / AUX Diagnostic port
-        draw_box(cx + 0.192, cy - 0.015, pcon_z, 0.010, 0.007, 0.004, (0.16, 0.18, 0.22))
-
+        draw_box(cx + 0.192, cy - 0.015, face_z + 0.0025, 0.010, 0.007, 0.004, (0.16, 0.18, 0.22))
 
         # Power Rocker Switch (Far right upper corner)
         pwr_sw_c = (0.85, 0.22, 0.22) if device.power_state else (0.35, 0.12, 0.12)
-        draw_box(cx + 0.19, cy + 0.018, face_z + 0.002, 0.014, 0.012, 0.004, pwr_sw_c)
+        draw_box(cx + 0.19, cy + 0.018, face_z + 0.0025, 0.014, 0.012, 0.0035, pwr_sw_c)

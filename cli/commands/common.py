@@ -98,6 +98,35 @@ class CommonCommands:
             max_args=1
         )
 
+        # 7. help
+        registry.register(
+            tokens=["help"],
+            handler=cls.handle_help,
+            modes=all_modes,
+            help_summary="Description of the interactive help system",
+            min_args=0,
+            max_args=0
+        )
+
+    @staticmethod
+    def handle_help(device: Any, context: CLIContext, args: List[str]) -> CommandResult:
+        lines = [
+            "Help may be requested at any point in a command by entering",
+            "a question mark '?'. If nothing matches, the help list will",
+            "be empty and you must back up until entering a '?' shows the",
+            "available options.",
+            "Two styles of help are provided:",
+            "1. Full help is available when you are ready to enter a",
+            "   command argument (e.g. 'show ?') and will describe each possible",
+            "   argument.",
+            "2. Partial help is provided when an abbreviated argument is entered",
+            "   and you want to know what legal arguments begin with the characters",
+            "   already typed (e.g. 'sh?').",
+            "",
+            "Type '?' and press Enter to view all available commands in the current mode."
+        ]
+        return CommandResult.ok(output=lines)
+
     @staticmethod
     def handle_enable(device: Any, context: CLIContext, args: List[str]) -> CommandResult:
         context.mode = CLIMode.PRIVILEGED_EXEC

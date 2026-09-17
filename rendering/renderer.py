@@ -17,8 +17,9 @@ class Renderer:
     def _init_gl(self) -> None:
         """Initialize OpenGL states."""
         glViewport(0, 0, self.width, self.height)
-        glClearColor(0.96, 0.97, 0.98, 1.0)
+        glClearColor(0.12, 0.14, 0.17, 1.0)
         glClearDepth(1.0)
+        glDepthRange(0.0, 1.0)
 
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LEQUAL)
@@ -27,6 +28,7 @@ class Renderer:
 
         glShadeModel(GL_SMOOTH)
         glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST)
+        glEnable(GL_NORMALIZE)
 
         # Alpha blending for clean modern UI
         glEnable(GL_BLEND)

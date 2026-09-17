@@ -2,6 +2,7 @@
 
 import pygame
 from typing import Optional
+from config.game_config import GameConfig
 from core.game_state import GameState, GameStateManager
 from core.service_container import ServiceContainer
 from core.input_manager import InputManager
@@ -83,7 +84,8 @@ class SandboxScene(Scene):
             ((0.20, 0.22, 0.25), "Black"),
         ]
         self.held_cable_color_idx: int = 0  # Default to Royal Blue
-
+        self.screen_w: int = GameConfig.WINDOW_WIDTH
+        self.screen_h: int = GameConfig.WINDOW_HEIGHT
 
         # Modal and notification states
         self.active_modal: Optional[str] = None  # None, "INTERACTION", "INVENTORY", "CLI"
@@ -153,11 +155,16 @@ class SandboxScene(Scene):
         self.active_modal = "CLI"
         input_mgr: InputManager = self.services.get("input_manager")
         input_mgr.set_mouse_locked(False)
+        pygame.key.set_repeat(280, 30)
+
+        # Center terminal window using active scene screen resolution
+        self.terminal_ui.center_window(self.screen_w, self.screen_h)
 
     def _close_cli(self) -> None:
         self.active_modal = None
         input_mgr: InputManager = self.services.get("input_manager")
         input_mgr.set_mouse_locked(True)
+        pygame.key.set_repeat(0)
 
     def _close_terminal(self) -> None:
         self._close_cli()
@@ -166,6 +173,7 @@ class SandboxScene(Scene):
         self.active_modal = None
         input_mgr: InputManager = self.services.get("input_manager")
         input_mgr.set_mouse_locked(True)
+        pygame.key.set_repeat(0)
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         input_mgr: InputManager = self.services.get("input_manager")
@@ -406,6 +414,8 @@ class SandboxScene(Scene):
 
     def resize(self, width: int, height: int) -> None:
         """Propagate resize to all UI overlays."""
+        self.screen_w = width
+        self.screen_h = height
         self.hud.resize(width, height)
         self.overview_hud.resize(width, height)
         self.terminal_ui.resize(width, height)
@@ -533,7 +543,7 @@ class SandboxScene(Scene):
             self.inventory_ui.render(ui)
 
         elif self.active_modal == "CLI":
-            self.terminal_ui.render(ui)
+            self.terminal_ui.render(ui, screen_w=renderer.width, screen_h=renderer.height)
 
         # Debug Overlay (F3)
         devs = self.world.get_all_devices()

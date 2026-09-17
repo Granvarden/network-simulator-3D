@@ -1,17 +1,29 @@
 """High-detail 3D Volumetric Cable rendering with anti-clipping patch pathing and RJ45 assemblies."""
 
 import math
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from OpenGL.GL import *
 from .cable import Cable
 from rendering.primitives import draw_tube_path, draw_rj45_connector
 
 
 class CableRenderer:
-    """Renders high-detail 3D volumetric patch cables with molded boots and anti-clipping routing."""
+    """Renders high-detail 3D volumetric patch cables with molded boots, display-list caching, and anti-clipping routing."""
 
     CABLE_RADIUS: float = 0.003  # 3mm radius = 6mm Cat6 diameter
-    BOOT_LENGTH: float = 0.038   # 38mm rigid connector & boot length
+    BOOT_LENGTH: float = 0.040   # 40mm rigid connector & boot length
+
+    def __init__(self):
+        # Display list cache for static connected patch cables: cable_id -> (cache_key, display_list)
+        self._cable_cache: Dict[str, Tuple[Tuple, int]] = {}
+
+    def __del__(self):
+        for _, dlist in self._cable_cache.values():
+            try:
+                glDeleteLists(dlist, 1)
+            except Exception:
+                pass
+        self._cable_cache.clear()
 
     @staticmethod
     def get_port_world_coords(port) -> Optional[Tuple[float, float, float]]:
@@ -28,7 +40,7 @@ class CableRenderer:
         cls,
         p1: Tuple[float, float, float],
         p2: Tuple[float, float, float],
-        segments: int = 28
+        segments: int = 24
     ) -> List[Tuple[float, float, float]]:
         """
         Generate a smooth 3D Catmull-Rom spline trajectory for a patch cable that guarantees
@@ -55,10 +67,10 @@ class CableRenderer:
 
         # 2. Key control points along the physical drape:
         # P0: Inside Port 1 socket
-        # P1: Rigid boot tip 1 (must be perpendicular to faceplate along +Z)
+        # P1: Rigid boot tip 1 (straight along +Z through strain-relief collar)
         boot_len = cls.BOOT_LENGTH
         cp0 = (x1, y1, z1)
-        cp1 = (x1, y1, z1 + boot_len)
+        cp1 = (x1, y1, z1 + boot_len + 0.004)
 
         # P2: Forward arc emerging from Port 1
         cp2 = (x1 + dx * 0.08, y1 - sag * 0.15, z1 + forward_clearance * 0.70)
@@ -74,8 +86,8 @@ class CableRenderer:
         # P4: Forward arc entering Port 2
         cp4 = (x2 - dx * 0.08, y2 - sag * 0.15, z2 + forward_clearance * 0.70)
 
-        # P5: Rigid boot tip 2 (must be perpendicular to faceplate along +Z)
-        cp5 = (x2, y2, z2 + boot_len)
+        # P5: Rigid boot tip 2 (straight along +Z through strain-relief collar)
+        cp5 = (x2, y2, z2 + boot_len + 0.004)
         # P6: Inside Port 2 socket
         cp6 = (x2, y2, z2)
 
@@ -136,8 +148,27 @@ class CableRenderer:
         result.append(cps[-1])
         return result
 
+    def _draw_single_cable(
+        self,
+        p1: Tuple[float, float, float],
+        p2: Tuple[float, float, float],
+        color: Tuple[float, float, float]
+    ) -> None:
+        """Render a single connected patch cable assembly (connectors, boots, volumetric tube)."""
+        # 1. Render 3D RJ45 Connectors & Molded Boots at both endpoints
+        draw_rj45_connector(p1[0], p1[1], p1[2], color=color, forward_z=1.0)
+        draw_rj45_connector(p2[0], p2[1], p2[2], color=color, forward_z=1.0)
+
+        # 2. Generate smooth anti-clipping volumetric 3D path
+        path = self.generate_cable_path(p1, p2, segments=24)
+
+        # 3. Render 3D volumetric polygonal tube with lighting & specular shading
+        draw_tube_path(path, radius=self.CABLE_RADIUS, color=color, radial_segments=16)
+
     def render_cables(self, cables: List[Cable]) -> None:
-        """Render all active patch cables as 3D volumetric tubes with RJ45 assemblies."""
+        """Render all active patch cables as 3D volumetric tubes with RJ45 assemblies using display list caching."""
+        active_ids = set()
+
         for cable in cables:
             if not cable.connected or not cable.endpoint_a or not cable.endpoint_b:
                 continue
@@ -148,15 +179,44 @@ class CableRenderer:
             if not p1 or not p2:
                 continue
 
-            # 1. Render 3D RJ45 Connectors & Molded Boots at both endpoints
-            draw_rj45_connector(p1[0], p1[1], p1[2], color=cable.color, forward_z=1.0)
-            draw_rj45_connector(p2[0], p2[1], p2[2], color=cable.color, forward_z=1.0)
+            active_ids.add(cable.cable_id)
+            cache_key = (p1, p2, cable.color)
 
-            # 2. Generate smooth anti-clipping volumetric 3D path
-            path = self.generate_cable_path(p1, p2, segments=32)
+            if cable.cable_id in self._cable_cache:
+                cached_key, dlist = self._cable_cache[cable.cable_id]
+                if cached_key == cache_key:
+                    try:
+                        glCallList(dlist)
+                        continue
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        glDeleteLists(dlist, 1)
+                    except Exception:
+                        pass
+                    del self._cable_cache[cable.cable_id]
 
-            # 3. Render 3D volumetric polygonal tube with lighting & specular shading
-            draw_tube_path(path, radius=self.CABLE_RADIUS, color=cable.color, radial_segments=16)
+            # Compile into GPU display list
+            try:
+                dlist = glGenLists(1)
+                glNewList(dlist, GL_COMPILE)
+                self._draw_single_cable(p1, p2, cable.color)
+                glEndList()
+                self._cable_cache[cable.cable_id] = (cache_key, dlist)
+                glCallList(dlist)
+            except Exception:
+                # Fallback for headless unit tests
+                self._draw_single_cable(p1, p2, cable.color)
+
+        # Clean up cache for removed/unplugged cables
+        for cid in list(self._cable_cache.keys()):
+            if cid not in active_ids:
+                try:
+                    glDeleteLists(self._cable_cache[cid][1], 1)
+                except Exception:
+                    pass
+                del self._cable_cache[cid]
 
     def render_held_cable(
         self,
@@ -177,7 +237,7 @@ class CableRenderer:
         if is_targeting_port:
             # When hovering over a port, snap the RJ45 connector directly into the port socket
             draw_rj45_connector(x2, y2, z2, color=color, forward_z=1.0)
-            path = self.generate_cable_path(source_pos, target_pos, segments=28)
+            path = self.generate_cable_path(source_pos, target_pos, segments=24)
             draw_tube_path(path, radius=self.CABLE_RADIUS, color=color, radial_segments=16)
         else:
             # When dragging in free space / hand, orient the held RJ45 connector towards the aim direction
@@ -205,7 +265,7 @@ class CableRenderer:
             held_boot_z = z2 + conn_dir[2] * boot_len
 
             cp0 = (x1, y1, z1)
-            cp1 = (x1, y1, z1 + boot_len)
+            cp1 = (x1, y1, z1 + boot_len + 0.004)
             cp2 = (x1, y1 - 0.03, z1 + 0.08)
 
             mid_x = (x1 + held_boot_x) / 2.0
@@ -213,9 +273,9 @@ class CableRenderer:
             mid_z = (z1 + held_boot_z) / 2.0 + 0.05
             cp3 = (mid_x, mid_y, mid_z)
 
-            cp4 = (held_boot_x + conn_dir[0] * 0.06, held_boot_y - 0.03, held_boot_z + conn_dir[2] * 0.06)
+            cp4 = (held_boot_x + conn_dir[0] * 0.05, held_boot_y - 0.02, held_boot_z + conn_dir[2] * 0.05)
             cp5 = (held_boot_x, held_boot_y, held_boot_z)
             cp6 = (x2, y2, z2)
 
-            path = self._catmull_rom_spline([cp0, cp1, cp2, cp3, cp4, cp5, cp6], total_segments=24)
+            path = self._catmull_rom_spline([cp0, cp1, cp2, cp3, cp4, cp5, cp6], total_segments=20)
             draw_tube_path(path, radius=self.CABLE_RADIUS, color=color, radial_segments=16)

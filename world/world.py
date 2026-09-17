@@ -1,9 +1,8 @@
-"""World manager coordinating room, racks, desk, devices, and cables."""
+"""World manager coordinating room, server racks, devices, and cables."""
 
 from typing import Dict, List, Optional, Tuple
 from .room import Room
 from .rack import Rack
-from .desk import Desk
 from .interactable import Interactable
 from devices.device import Device
 
@@ -14,9 +13,6 @@ class World:
     def __init__(self):
         self.room: Room = Room()
         self.racks: Dict[str, Rack] = {}
-        # Engineer workstation desk placed against left wall (West wall X = -10.0m)
-        self.desk: Desk = Desk(position=(-9.15, 0.0, -3.5))
-
         self._init_racks()
 
     def _init_racks(self) -> None:
@@ -31,9 +27,7 @@ class World:
 
     def get_all_interactables(self) -> List[Interactable]:
         """Return list of all interactable world entities."""
-        items: List[Interactable] = list(self.racks.values())
-        items.append(self.desk)
-        return items
+        return list(self.racks.values())
 
     def get_all_devices(self) -> List[Device]:
         """Collect all devices installed across all racks."""
@@ -52,18 +46,15 @@ class World:
     def get_collision_boxes(self) -> List[Tuple[float, float, float, float, float, float]]:
         """Collect AABBs of all solid obstacles in the lab."""
         boxes: List[Tuple[float, float, float, float, float, float]] = []
-        # Room boundaries
+        # Room boundaries and electrical switchboards
         boxes.extend(self.room.get_wall_boxes())
         # Server Racks
         for rack in self.racks.values():
             boxes.append(rack.get_bounding_box())
-        # Desk
-        boxes.append(self.desk.get_bounding_box())
         return boxes
 
     def render(self) -> None:
         """Render the complete 3D environment."""
         self.room.render()
-        self.desk.render()
         for rack in self.racks.values():
             rack.render()

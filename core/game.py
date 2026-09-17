@@ -75,8 +75,10 @@ class Game:
             GameState.MAIN_MENU: MainMenuScene(self.services),
             GameState.SANDBOX: SandboxScene(self.services),
         }
+        for scene in self.scenes.values():
+            scene.resize(self.width, self.height)
+
         self.current_scene = self.scenes[GameState.MAIN_MENU]
-        self.current_scene.resize(self.width, self.height)
         self.current_scene.on_enter()
 
         # 5. Listen for State Changes

@@ -117,18 +117,7 @@ class HUD:
         draw_bracket_bar(cx - 0.75, cy - 2.5, 1.5, 5.0)
         draw_bracket_bar(cx - 1.0, cy - 1.0, 2.0, 2.0)
 
-        # 3. Dynamic Interaction Tooltip below Crosshair
-        if target.target_type != "NONE" and target.hint_text:
-            hint_w = max(280, len(target.hint_text) * 9 + 44)
-            hint_h = 42
-            hx = cx - hint_w / 2.0
-            hy = cy + 34
-            # Modern floating pill tooltip
-            ui.draw_rect(hx, hy, hint_w, hint_h, (255, 255, 255), alpha=0.96, corner_radius=21.0)
-            ui.draw_rect_outline(hx, hy, hint_w, hint_h, mode_accent, line_width=1.5)
-            ui.draw_text(target.hint_text, cx, hy + hint_h / 2.0, font_size=16, color=mode_accent, center_x=True, center_y=True)
-
-        # 4. Bottom Controls Bar
+        # 3. Bottom Controls Bar
         bot_h = 36
         bot_y = self.screen_h - bot_h
         ui.draw_rect(0, bot_y, self.screen_w, bot_h, (255, 255, 255), alpha=0.92)

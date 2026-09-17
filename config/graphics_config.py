@@ -8,8 +8,8 @@ from typing import Tuple
 class GraphicsConfig:
     # Camera
     FOV: float = 65.0
-    NEAR_CLIP: float = 0.1
-    FAR_CLIP: float = 120.0
+    NEAR_CLIP: float = 0.08
+    FAR_CLIP: float = 35.0
 
     # Modern Light Theme UI Palette (RGB in 0-255 for 2D / 0.0-1.0 for GL)
     COLOR_BG_LIGHT: Tuple[int, int, int] = (245, 247, 250)         # Soft clean light gray #F5F7FA
@@ -33,11 +33,11 @@ class GraphicsConfig:
     COLOR_TERM_ERROR: Tuple[int, int, int] = (248, 113, 113)       # Red error output
 
     # 3D World Materials & Colors (Normalized 0.0 - 1.0)
-    COLOR_FLOOR_TILE: Tuple[float, float, float] = (0.75, 0.77, 0.80)
-    COLOR_FLOOR_GRID: Tuple[float, float, float] = (0.60, 0.62, 0.65)
-    COLOR_WALL: Tuple[float, float, float] = (0.85, 0.87, 0.90)
-    COLOR_WALL_TRIM: Tuple[float, float, float] = (0.35, 0.38, 0.42)
-    COLOR_CEILING: Tuple[float, float, float] = (0.90, 0.92, 0.94)
+    COLOR_FLOOR_TILE: Tuple[float, float, float] = (0.55, 0.58, 0.62)
+    COLOR_FLOOR_GRID: Tuple[float, float, float] = (0.38, 0.40, 0.44)
+    COLOR_WALL: Tuple[float, float, float] = (0.36, 0.38, 0.42)        # Modern industrial datacenter slate
+    COLOR_WALL_TRIM: Tuple[float, float, float] = (0.16, 0.18, 0.22)   # Dark charcoal trim
+    COLOR_CEILING: Tuple[float, float, float] = (0.28, 0.30, 0.33)     # Dark industrial ceiling plenum
 
     # Equipment Colors
     COLOR_RACK_FRAME: Tuple[float, float, float] = (0.15, 0.16, 0.18)

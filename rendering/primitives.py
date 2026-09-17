@@ -314,21 +314,55 @@ def draw_tube_path(
         rings.append(ring_verts)
 
     glEnable(GL_LIGHTING)
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
     glColor3f(*color)
 
-    # 5. Render connected smooth quad strips
+    # Realistic plastic PVC cable jacket specular sheen
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.35, 0.35, 0.35, 1.0])
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 24.0)
+
+    # Disable face culling temporarily for continuous 3D tube to guarantee seamless solid surface
+    glDisable(GL_CULL_FACE)
+
+    # 5. Render connected smooth quad strips with outward-facing normals and CCW winding
     for i in range(len(rings) - 1):
         r0 = rings[i]
         r1 = rings[i + 1]
         glBegin(GL_QUAD_STRIP)
         for j in range(radial_segments + 1):
-            n0, v0 = r0[j]
             n1_v, v1_v = r1[j]
-            glNormal3f(*n0)
-            glVertex3f(*v0)
+            n0, v0 = r0[j]
             glNormal3f(*n1_v)
             glVertex3f(*v1_v)
+            glNormal3f(*n0)
+            glVertex3f(*v0)
         glEnd()
+
+    # 6. Watertight disc end caps at tube start and end
+    # Start cap
+    t0 = frames[0][0]
+    glBegin(GL_TRIANGLE_FAN)
+    glNormal3f(-t0[0], -t0[1], -t0[2])
+    glVertex3f(*points[0])
+    for j in range(radial_segments, -1, -1):
+        glVertex3f(*rings[0][j][1])
+    glEnd()
+
+    # End cap
+    tn = frames[-1][0]
+    glBegin(GL_TRIANGLE_FAN)
+    glNormal3f(tn[0], tn[1], tn[2])
+    glVertex3f(*points[-1])
+    for j in range(radial_segments + 1):
+        glVertex3f(*rings[-1][j][1])
+    glEnd()
+
+    glEnable(GL_CULL_FACE)
+
+    # Restore default material specular
+    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, [0.4, 0.4, 0.4, 1.0])
+    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 32.0)
 
 
 def draw_rj45_connector(
@@ -404,9 +438,10 @@ def draw_rj45_connector(
     # 3. Plastic Retention Locking Latch Tab (Spring latch on top of plug)
     draw_box(0.0, 0.0048, 0.0095, 0.0042, 0.0028, 0.010, (0.70, 0.75, 0.82))
 
-    # 4. Molded Snagless Rubber Strain-Relief Boot (Extending from plug to cable)
-    boot_color = (max(0.05, color[0] * 0.85), max(0.05, color[1] * 0.85), max(0.05, color[2] * 0.85))
-    boot_highlight = (min(1.0, color[0] * 1.05), min(1.0, color[1] * 1.05), min(1.0, color[2] * 1.05))
+    # 4. Molded Snagless Rubber Strain-Relief Boot (Matching cable color seamlessly)
+    boot_color = color
+    boot_highlight = (min(1.0, color[0] * 1.12), min(1.0, color[1] * 1.12), min(1.0, color[2] * 1.12))
+    boot_ridge = (color[0] * 0.82, color[1] * 0.82, color[2] * 0.82)
 
     # Main boot body (18mm length)
     draw_box(0.0, 0.0, 0.023, 0.0125, 0.0100, 0.018, boot_color)
@@ -415,10 +450,32 @@ def draw_rj45_connector(
     draw_box(0.0, 0.0055, 0.018, 0.0055, 0.0032, 0.009, boot_highlight)
 
     # Anti-slip boot grip ridge
-    draw_box(0.0, 0.0052, 0.026, 0.0110, 0.0015, 0.003, (boot_color[0] * 0.7, boot_color[1] * 0.7, boot_color[2] * 0.7))
+    draw_box(0.0, 0.0052, 0.026, 0.0110, 0.0015, 0.003, boot_ridge)
 
-    # 5. Boot Strain-Relief Transition Collar (Connecting boot to flexible 3D cable)
-    draw_box(0.0, 0.0, 0.035, 0.0085, 0.0080, 0.008, boot_color)
+    # 5. Round Molded Strain-Relief Collar (Tapering snugly onto the 6mm round cable)
+    glColor3f(*boot_color)
+    collar_segs = 12
+    glBegin(GL_QUAD_STRIP)
+    for s in range(collar_segs + 1):
+        ang = 2.0 * math.pi * s / collar_segs
+        ca = math.cos(ang)
+        sa = math.sin(ang)
+        glNormal3f(ca, sa, 0.0)
+        glVertex3f(0.0044 * ca, 0.0044 * sa, 0.031)
+        glVertex3f(0.0034 * ca, 0.0034 * sa, 0.040)
+    glEnd()
+
+    # Strain-relief grip ring
+    glColor3f(*boot_ridge)
+    glBegin(GL_QUAD_STRIP)
+    for s in range(collar_segs + 1):
+        ang = 2.0 * math.pi * s / collar_segs
+        ca = math.cos(ang)
+        sa = math.sin(ang)
+        glNormal3f(ca, sa, 0.0)
+        glVertex3f(0.0040 * ca, 0.0040 * sa, 0.035)
+        glVertex3f(0.0040 * ca, 0.0040 * sa, 0.037)
+    glEnd()
 
     glPopMatrix()
 

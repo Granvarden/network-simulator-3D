@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 from config.game_config import GameConfig
 from devices.device import Device
 from world.rack import Rack
-from world.desk import Desk
 from world.interactable import Interactable
 
 
@@ -276,20 +275,13 @@ class InteractionDetector:
                 )
 
         # -------------------------------------------------------------
-        # 4. PRIORITY 4: Other Interactables (e.g. Workstation Desk)
+        # 4. PRIORITY 4: Other Interactables
         # -------------------------------------------------------------
         for item in other_items:
             box = item.get_bounding_box()
             res = self.ray_aabb_intersect(eye_pos, forward, box, max_dist)
             if res is not None:
                 dist, _ = res
-                if isinstance(item, Desk):
-                    return InteractionTarget(
-                        target_type="DESK",
-                        interactable=item,
-                        distance=dist,
-                        hint_text="[E] Engineer Workstation CLI"
-                    )
                 return InteractionTarget(
                     target_type="GENERIC",
                     interactable=item,

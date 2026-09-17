@@ -6,7 +6,7 @@ without CLI handlers directly modifying port or device internal fields.
 
 from typing import Any, Dict, List, Optional, Tuple
 from devices.device import Device
-from devices.port import Port, AdminStatus
+from devices.port import Port, AdminStatus, PortType
 from devices.interface_normalizer import InterfaceNormalizer
 from network.subnet import is_valid_ip, is_valid_netmask, ip_to_int, netmask_to_cidr
 
@@ -178,9 +178,11 @@ class InterfaceService:
 
     @classmethod
     def get_interface_summary(cls, device: Device) -> List[Dict[str, Any]]:
-        """Get summary status of all interfaces on a device."""
+        """Get summary status of all network interfaces on a device."""
         summary = []
         for port in device.ports.values():
+            if getattr(port, "port_type", None) == PortType.CONSOLE or port.port_name.lower() == "console":
+                continue
             c_name = getattr(port, "canonical_name", port.port_name)
             s_name = getattr(port, "short_name", port.port_name)
             summary.append({

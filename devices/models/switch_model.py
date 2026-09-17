@@ -35,26 +35,26 @@ class SwitchModel(DeviceModel):
 
         # 3. Front Faceplate
         face_z = cz + depth / 2.0
-        draw_box(cx, cy, face_z + 0.001, width - 0.008, height - 0.004, 0.003, (0.10, 0.12, 0.16))
+        draw_box(cx, cy, face_z + 0.00075, width - 0.008, height - 0.004, 0.0015, (0.10, 0.12, 0.16))
 
         # Top Accent Bezel Stripe
-        draw_box(cx, cy + height / 2.0 - 0.003, face_z + 0.002, width - 0.012, 0.003, 0.002, (0.35, 0.40, 0.46))
+        draw_box(cx, cy + height / 2.0 - 0.003, face_z + 0.0017, width - 0.012, 0.003, 0.0006, (0.35, 0.40, 0.46))
 
         # 4. Left System Status Panel & Mode Pushbutton
-        draw_box(cx - 0.190, cy, face_z + 0.003, 0.008, 0.008, 0.003, (0.35, 0.38, 0.42))  # Mode button
+        draw_box(cx - 0.190, cy, face_z + 0.0030, 0.008, 0.008, 0.0025, (0.35, 0.38, 0.42))  # Mode button
         # 4 Micro Diagnostic LEDs (SYST, STAT, SPEED, DUPLEX)
         sys_led_col = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
         for idx in range(4):
             lx = cx - 0.175 + idx * 0.009
-            draw_box(lx, cy, face_z + 0.002, 0.004, 0.004, 0.002, sys_led_col)
+            draw_box(lx, cy, face_z + 0.0020, 0.004, 0.004, 0.0012, sys_led_col)
 
         # 5. Dual-Row 24-Port RJ45 Matrix Block
-        # Backing metal shield cage
+        # Backing metal shield cage (cleanly proud of front faceplate)
         start_x = -0.13
         spacing_x = 0.024
         cage_center_x = cx + start_x + 5.5 * spacing_x
         cage_w = 12 * spacing_x + 0.008
-        draw_box(cage_center_x, cy, face_z + 0.001, cage_w, 0.034, 0.003, (0.22, 0.25, 0.29))
+        draw_box(cage_center_x, cy, face_z + 0.0018, cage_w, 0.034, 0.0016, (0.22, 0.25, 0.29))
 
         port_pz = face_z + 0.002
 
@@ -77,7 +77,7 @@ class SwitchModel(DeviceModel):
 
             # Gold Contact Pins simulation
             pin_y_off = 0.002 if row == 0 else -0.002
-            draw_box(px, py + pin_y_off, port_pz + 0.003, 0.009, 0.002, 0.001, (0.92, 0.75, 0.20))
+            draw_box(px, py + pin_y_off, port_pz + 0.0032, 0.009, 0.002, 0.0008, (0.92, 0.75, 0.20))
 
             # Dual Micro Status LED Indicators (Left: Link Status, Right: Activity / Speed)
             if port is not None:
@@ -88,13 +88,13 @@ class SwitchModel(DeviceModel):
             led_y = py - 0.0085 if row == 0 else py + 0.0085
 
             # Contrast Bezel Housing
-            draw_box(px, led_y, port_pz + 0.0005, 0.012, 0.0035, 0.0015, GraphicsConfig.COLOR_LED_BEZEL)
+            draw_box(px, led_y, port_pz + 0.0012, 0.012, 0.0035, 0.0014, GraphicsConfig.COLOR_LED_BEZEL)
 
-            # Left Micro LED (Link Status: Green = Operational Up, Amber = Cable plugged in but Admin Down/Link Down, Off = Unplugged)
-            draw_box(px - 0.0032, led_y, port_pz + 0.0015, 0.0035, 0.0022, 0.0015, link_col)
+            # Left Micro LED (Link Status)
+            draw_box(px - 0.0032, led_y, port_pz + 0.0022, 0.0035, 0.0022, 0.0008, link_col)
 
-            # Right Micro LED (Activity Status: Green Heartbeat / High-speed flicker during traffic, Off = Inactive)
-            draw_box(px + 0.0032, led_y, port_pz + 0.0015, 0.0035, 0.0022, 0.0015, act_col)
+            # Right Micro LED (Activity Status)
+            draw_box(px + 0.0032, led_y, port_pz + 0.0022, 0.0035, 0.0022, 0.0008, act_col)
 
         # 6. SFP+ 10G Dual Uplink Cages on Far Right
         sfp_z = face_z + 0.002
@@ -104,7 +104,7 @@ class SwitchModel(DeviceModel):
             draw_box(sfp_x, cy, sfp_z, 0.018, 0.016, 0.006, (0.60, 0.62, 0.66))
             # SFP optical cavity / dust cap
             draw_box(sfp_x, cy, sfp_z + 0.002, 0.013, 0.011, 0.003, (0.08, 0.10, 0.14))
-            # SFP activity LED
+            # SFP activity LED (stepped proud of faceplate)
             sfp_c = GraphicsConfig.COLOR_LED_GREEN if device.power_state else GraphicsConfig.COLOR_LED_OFF
-            draw_box(sfp_x, cy + 0.010, sfp_z, 0.003, 0.003, 0.001, sfp_c)
+            draw_box(sfp_x, cy + 0.010, face_z + 0.0022, 0.003, 0.003, 0.0014, sfp_c)
 
